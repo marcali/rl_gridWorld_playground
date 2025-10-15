@@ -31,10 +31,11 @@ def train(
         alpha: Learning rate
         gamma: Discount factor
         experiment_name: Name for this experiment
-        silent: If True, suppress progress output (for grid search)
+        silent: If True, suppress progress output for grid search
         env: Environment to use (if None, creates new one)
     """
 
+    # instanciate learning agent
     agent = QLearningAgent(
         n_states=config.N_STATES, n_actions=config.N_ACTIONS, alpha=alpha, gamma=gamma
     )
@@ -42,7 +43,6 @@ def train(
     # Only create logger if not in silent mode
     logger = MetricsLogger(experiment_name=experiment_name) if not silent else None
 
-    # Tracking variables
     epsilon = epsilon_start
     # automatically deletes oldest item when maxlen is reached, only keep last 100 items
     reward_history = deque(maxlen=100)
@@ -83,7 +83,10 @@ def train(
             steps += 1
             state = next_state
 
-        # Check if agent reached goal (success)
+        # Decay epsilon
+        epsilon = max(epsilon_end, epsilon * epsilon_decay)
+
+        # Check if agent reached goal
         success = env.current_state == env.goal_state
 
         # Update histories
@@ -104,9 +107,6 @@ def train(
                 step_penalties=step_penalties,
                 collision_penalties=collision_penalties,
             )
-
-        # Decay epsilon
-        epsilon = max(epsilon_end, epsilon * epsilon_decay)
 
         # Print progress (only if not silent)
         if not silent and episode % 100 == 0:
@@ -148,89 +148,32 @@ def evaluate(
         env: Environment (same as training)
         n_episodes: Number of evaluation episodes
         silent: If True, suppress output and don't save visualizations
+        eval_epsilon: Custom evaluation epsilon
+        tolerance: Custom tolerance for tie-breaking
 
     Returns:
         Dictionary with evaluation metrics if silent=True, otherwise returns logger
     """
-    total_rewards = []
-    total_steps = []
-    successes = []
-
     if not silent:
         print("\n" + "=" * 60)
         print("EVALUATION")
         print("=" * 60)
 
-    for episode in range(n_episodes):
-        state = env.reset()
-        episode_reward = 0
-        steps = 0
-        done = False
-
-        # Track path for visualization
-        path = [env.current_state]
-
-        while not done and steps < config.MAX_EVAL_STEPS:
-            # Use custom eval_epsilon if provided, otherwise use config default
-            epsilon_to_use = eval_epsilon if eval_epsilon is not None else config.EVAL_EPSILON
-            # Use custom tolerance if provided, otherwise use config default
-            tolerance_to_use = tolerance if tolerance is not None else config.Q_VALUE_TOLERANCE
-            action = agent.act(state, epsilon=epsilon_to_use, tolerance=tolerance_to_use)
-            next_state, reward, done = env.step(action)
-            episode_reward += reward
-            steps += 1
-            state = next_state
-
-            # Record path
-            path.append(env.current_state)
-
-        # Determine success (did agent reach goal?)
-        success = env.current_state == env.goal_state
-
-        # Save path visualization and log metrics (only if not silent)
-        if not silent and logger is not None:
-            save_path = logger.experiment_dir / f"eval_path_episode_{episode+1}.png"
-            title = f"Evaluation Episode {episode+1} - {'SUCCESS' if success else 'FAILED'} ({steps} steps)"
-            env.render_path(path, title=title, save_path=save_path)
-
-            # Log metrics
-            logger.log_evaluation_episode(
-                episode=episode, total_reward=episode_reward, steps=steps, success=success
-            )
-
-        total_rewards.append(episode_reward)
-        total_steps.append(steps)
-        successes.append(success)
-
-        if not silent:
-            status = (
-                "✓ GOAL"
-                if success
-                else ("✗ TIMEOUT" if steps >= config.MAX_EVAL_STEPS else "✗ FAIL")
-            )
-            print(
-                f"Eval Episode {episode + 1:2d} | "
-                f"Reward: {episode_reward:7.2f} | "
-                f"Steps: {steps:4d} | "
-                f"{status}"
-            )
-
-    # Summary statistics
-    if not silent:
-        print("-" * 60)
-        print(f"Average Reward: {np.mean(total_rewards):7.2f} ± {np.std(total_rewards):.2f}")
-        print(f"Average Steps:  {np.mean(total_steps):7.2f} ± {np.std(total_steps):.2f}")
-        print(f"Success Rate:   {np.mean(successes) * 100:6.1f}%")
-        print("=" * 60)
+    # Use the consolidated evaluation function
+    results = _evaluate_single_agent(
+        agent=agent,
+        logger=logger,
+        env=env,
+        n_episodes=n_episodes,
+        silent=silent,
+        eval_epsilon=eval_epsilon,
+        tolerance=tolerance,
+        agent_type="Evaluation",
+        save_paths=not silent,  # Save paths when not silent
+    )
 
     if silent:
-        return {
-            "success_rate": np.mean(successes) * 100,
-            "avg_reward": np.mean(total_rewards),
-            "std_reward": np.std(total_rewards),
-            "avg_steps": np.mean(total_steps),
-            "std_steps": np.std(total_steps),
-        }
+        return results
     else:
         return logger
 
@@ -299,22 +242,6 @@ def evaluate_with_random_baseline(
     print(f"{'Metric':<20} {'Trained Agent':<15} {'Random Agent':<15} {'Improvement':<15}")
     print("-" * 65)
 
-    success_improvement = trained_results["success_rate"] - random_results["success_rate"]
-    reward_improvement = trained_results["avg_reward"] - random_results["avg_reward"]
-    steps_improvement = (
-        random_results["avg_steps"] - trained_results["avg_steps"]
-    )  # Lower is better
-
-    print(
-        f"{'Success Rate (%)':<20} {trained_results['success_rate']:<15.1f} {random_results['success_rate']:<15.1f} {success_improvement:+.1f}"
-    )
-    print(
-        f"{'Avg Reward':<20} {trained_results['avg_reward']:<15.2f} {random_results['avg_reward']:<15.2f} {reward_improvement:+.2f}"
-    )
-    print(
-        f"{'Avg Steps':<20} {trained_results['avg_steps']:<15.1f} {random_results['avg_steps']:<15.1f} {steps_improvement:+.1f}"
-    )
-
     # Calculate learning effectiveness
     if random_results["success_rate"] > 0:
         success_multiplier = trained_results["success_rate"] / random_results["success_rate"]
@@ -378,8 +305,15 @@ def _evaluate_single_agent(
 
         # Save path visualization and log metrics (only if logger exists and save_paths=True)
         if save_paths and logger is not None:
-            save_path = logger.experiment_dir / f"{agent_type.lower()}_path_episode_{episode+1}.png"
-            title = f"{agent_type} Agent - Episode {episode+1} - {'SUCCESS' if success else 'FAILED'} ({steps} steps)"
+            # Use original naming convention for "Evaluation" agent type
+            if agent_type == "Evaluation":
+                save_path = logger.experiment_dir / f"eval_path_episode_{episode+1}.png"
+                title = f"Evaluation Episode {episode+1} - {'SUCCESS' if success else 'FAILED'} ({steps} steps)"
+            else:
+                save_path = (
+                    logger.experiment_dir / f"{agent_type.lower()}_path_episode_{episode+1}.png"
+                )
+                title = f"{agent_type} Agent - Episode {episode+1} - {'SUCCESS' if success else 'FAILED'} ({steps} steps)"
             env.render_path(path, title=title, save_path=save_path)
 
             # Log evaluation episode
@@ -391,17 +325,22 @@ def _evaluate_single_agent(
             )
 
         if not silent:
-            status = (
-                "✓ GOAL"
-                if success
-                else ("✗ TIMEOUT" if steps >= config.MAX_EVAL_STEPS else "✗ FAIL")
-            )
-            print(
-                f"{agent_type} Episode {episode + 1:2d} | "
-                f"Reward: {episode_reward:7.2f} | "
-                f"Steps: {steps:4d} | "
-                f"{status}"
-            )
+            status = "goal reached" if success else " Fail"
+            # Use original format for "Evaluation" agent type
+            if agent_type == "Evaluation":
+                print(
+                    f"Eval Episode {episode + 1:2d} | "
+                    f"Reward: {episode_reward:7.2f} | "
+                    f"Steps: {steps:4d} | "
+                    f"{status}"
+                )
+            else:
+                print(
+                    f"{agent_type} Episode {episode + 1:2d} | "
+                    f"Reward: {episode_reward:7.2f} | "
+                    f"Steps: {steps:4d} | "
+                    f"{status}"
+                )
 
         # Store results
         total_rewards.append(episode_reward)
@@ -417,10 +356,17 @@ def _evaluate_single_agent(
 
     if not silent:
         print("-" * 60)
-        print(f"{agent_type.upper()} AGENT SUMMARY:")
-        print(f"Average Reward: {avg_reward:7.2f} ± {std_reward:.2f}")
-        print(f"Average Steps:  {avg_steps:7.2f} ± {std_steps:.2f}")
-        print(f"Success Rate:   {success_rate:6.1f}%")
+        if agent_type == "Evaluation":
+            # Use original format for "Evaluation" agent type
+            print(f"Average Reward: {avg_reward:7.2f} ± {std_reward:.2f}")
+            print(f"Average Steps:  {avg_steps:7.2f} ± {std_steps:.2f}")
+            print(f"Success Rate:   {success_rate:6.1f}%")
+            print("=" * 60)
+        else:
+            print(f"{agent_type.upper()} AGENT SUMMARY:")
+            print(f"Average Reward: {avg_reward:7.2f} ± {std_reward:.2f}")
+            print(f"Average Steps:  {avg_steps:7.2f} ± {std_steps:.2f}")
+            print(f"Success Rate:   {success_rate:6.1f}%")
 
     return {
         "success_rate": success_rate,
