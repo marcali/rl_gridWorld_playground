@@ -155,69 +155,96 @@ class Environment:
 
         return observation, reward, done
 
-    def render(self, mode="human"):
-        """Visualize the environment using matplotlib"""
+    def render(self):
+        """Visualize the current environment state using matplotlib"""
+        return self._draw_environment()
 
-        if mode == "human":
-            # Create figure and axis
-            fig, ax = plt.subplots(1, 1, figsize=config.FIGURE_SIZE)
+    def _draw_environment(self, path=None, title=None, show_agent=True):
+        """
+        Draw the environment
 
-            # Draw grid
-            for i in range(self.size + 1):
-                ax.axhline(i, color="gray", linewidth=0.5)
-                ax.axvline(i, color="gray", linewidth=0.5)
+        Args:
+            path: List of states (tuples) representing a path to overlay
+            title: Title for the plot
+            show_agent: Whether to show the current agent position
 
-            # Draw obstacles
-            for y in range(self.size):
-                for x in range(self.size):
-                    if self.grid[y, x] == 1:
-                        # Static obstacles (dark red)
-                        obstacle_rect = patches.Rectangle(
-                            (x, y),
-                            1,
-                            1,
-                            linewidth=1,
-                            edgecolor="darkred",
-                            facecolor="red",
-                            alpha=0.7,
-                        )
-                        ax.add_patch(obstacle_rect)
-                    elif self.grid[y, x] == 2:
-                        # Random obstacles (orange)
-                        obstacle_rect = patches.Rectangle(
-                            (x, y),
-                            1,
-                            1,
-                            linewidth=1,
-                            edgecolor="darkorange",
-                            facecolor="orange",
-                            alpha=0.7,
-                        )
-                        ax.add_patch(obstacle_rect)
+        Returns:
+            matplotlib figure
+        """
+        # Create figure and axis
+        fig, ax = plt.subplots(1, 1, figsize=config.FIGURE_SIZE)
 
-            # Draw goal (green square)
-            goal_rect = patches.Rectangle(
-                (self.goal_state[1], self.goal_state[0]),
-                1,
-                1,
-                linewidth=2,
-                edgecolor="green",
-                facecolor="lightgreen",
-                alpha=0.7,
-            )
-            ax.add_patch(goal_rect)
-            ax.text(
-                self.goal_state[1] + 0.5,
-                self.goal_state[0] + 0.5,
-                "G",
-                ha="center",
-                va="center",
-                fontsize=20,
-                fontweight="bold",
-                color="darkgreen",
-            )
+        # Draw grid
+        for i in range(self.size + 1):
+            ax.axhline(i, color="gray", linewidth=0.5)
+            ax.axvline(i, color="gray", linewidth=0.5)
 
-            # Draw agent (blue circle)
+        # Draw obstacles
+        for y in range(self.size):
+            for x in range(self.size):
+                if self.grid[y, x] == 1:
+                    # Static obstacles (dark red)
+                    obstacle_rect = patches.Rectangle(
+                        (x, y),
+                        1,
+                        1,
+                        linewidth=1,
+                        edgecolor="darkred",
+                        facecolor="red",
+                        alpha=0.7,
+                    )
+                    ax.add_patch(obstacle_rect)
+                elif self.grid[y, x] == 2:
+                    # Random obstacles (orange)
+                    obstacle_rect = patches.Rectangle(
+                        (x, y),
+                        1,
+                        1,
+                        linewidth=1,
+                        edgecolor="darkorange",
+                        facecolor="orange",
+                        alpha=0.7,
+                    )
+                    ax.add_patch(obstacle_rect)
+
+        # Draw goal (green square)
+        goal_rect = patches.Rectangle(
+            (self.goal_state[1], self.goal_state[0]),
+            1,
+            1,
+            linewidth=2,
+            edgecolor="green",
+            facecolor="lightgreen",
+            alpha=0.7,
+        )
+        ax.add_patch(goal_rect)
+        ax.text(
+            self.goal_state[1] + 0.5,
+            self.goal_state[0] + 0.5,
+            "G",
+            ha="center",
+            va="center",
+            fontsize=20,
+            fontweight="bold",
+            color="darkgreen",
+        )
+
+        # Draw path if provided
+        if path:
+            path_x = [state[1] + 0.5 for state in path]
+            path_y = [state[0] + 0.5 for state in path]
+            ax.plot(path_x, path_y, "b-", linewidth=3, alpha=0.8, label="Agent Path")
+
+            # Mark start and end of path
+            if len(path) > 0:
+                # Start position
+                ax.plot(path_x[0], path_y[0], "go", markersize=10, label="Start")
+                # End position (if different from goal)
+                if len(path) > 1:
+                    ax.plot(path_x[-1], path_y[-1], "ro", markersize=10, label="End")
+
+        # Draw agent (blue circle) if requested and current_state exists
+        if show_agent and self.current_state is not None:
             agent_circle = patches.Circle(
                 (self.current_state[1] + 0.5, self.current_state[0] + 0.5),
                 0.3,
@@ -238,22 +265,30 @@ class Environment:
                 color="darkblue",
             )
 
-            # Set axis properties
-            ax.set_xlim(0, self.size)
-            ax.set_ylim(0, self.size)
-            ax.set_aspect("equal")
-            ax.set_xlabel("X", fontsize=12)
-            ax.set_ylabel("Y", fontsize=12)
+        # Set axis properties
+        ax.set_xlim(0, self.size)
+        ax.set_ylim(0, self.size)
+        ax.set_aspect("equal")
+        ax.set_xlabel("X", fontsize=12)
+        ax.set_ylabel("Y", fontsize=12)
+
+        # Set title
+        if title:
+            ax.set_title(title, fontsize=14, fontweight="bold")
+        else:
             ax.set_title(
                 f"GridWorld Environment (Step: {self.step_count})", fontsize=14, fontweight="bold"
             )
 
-            ax.invert_yaxis()
+        ax.invert_yaxis()
 
-            plt.tight_layout()
-            plt.show()
+        # Add legend if path is shown
+        if path:
+            ax.legend(loc="upper right")
 
-        return fig if mode == "human" else None
+        plt.tight_layout()
+
+        return fig
 
     def render_path(self, path, title="Agent Path", save_path=None):
         """
@@ -267,40 +302,16 @@ class Environment:
         Returns:
             matplotlib figure
         """
-        fig, ax = plt.subplots(1, 1, figsize=config.PATH_FIGURE_SIZE)
+        # Use the shared drawing method with path visualization
+        fig = self._draw_environment(path=path, title=title, show_agent=False)
 
-        # Draw grid
-        for i in range(self.size + 1):
-            ax.axhline(i, color="gray", linewidth=0.5)
-            ax.axvline(i, color="gray", linewidth=0.5)
+        # Add enhanced path visualization features
+        ax = fig.axes[0]
 
-        # Draw obstacles
-        for y in range(self.size):
-            for x in range(self.size):
-                if self.grid[y, x] == 1:
-                    # Static obstacles (dark red)
-                    obstacle_rect = patches.Rectangle(
-                        (x, y), 1, 1, linewidth=1, edgecolor="darkred", facecolor="red", alpha=0.6
-                    )
-                    ax.add_patch(obstacle_rect)
-                elif self.grid[y, x] == 2:
-                    # Random obstacles (orange)
-                    obstacle_rect = patches.Rectangle(
-                        (x, y),
-                        1,
-                        1,
-                        linewidth=1,
-                        edgecolor="darkorange",
-                        facecolor="orange",
-                        alpha=0.6,
-                    )
-                    ax.add_patch(obstacle_rect)
-
-        # Draw path as line
+        # Add arrows to show direction if path has multiple steps
         if len(path) > 1:
             path_x = [state[1] + 0.5 for state in path]
             path_y = [state[0] + 0.5 for state in path]
-            ax.plot(path_x, path_y, "b-", linewidth=3, alpha=0.6, label=f"Path ({len(path)} steps)")
 
             # Add arrows to show direction
             for i in range(len(path) - 1):
@@ -319,10 +330,7 @@ class Environment:
                         alpha=0.5,
                     )
 
-            # Mark start with circle
-            ax.plot(path_x[0], path_y[0], "go", markersize=15, label="Start", zorder=10)
-
-            # Mark end position
+            # Enhanced end position marking
             if path[-1] == self.goal_state:
                 ax.plot(
                     path_x[-1], path_y[-1], "g*", markersize=25, label="Goal Reached!", zorder=10
@@ -330,39 +338,8 @@ class Environment:
             else:
                 ax.plot(path_x[-1], path_y[-1], "rx", markersize=15, label="Stopped", zorder=10)
 
-        # Draw goal (green square)
-        goal_rect = patches.Rectangle(
-            (self.goal_state[1], self.goal_state[0]),
-            1,
-            1,
-            linewidth=3,
-            edgecolor="green",
-            facecolor="lightgreen",
-            alpha=0.5,
-        )
-        ax.add_patch(goal_rect)
-        ax.text(
-            self.goal_state[1] + 0.5,
-            self.goal_state[0] + 0.5,
-            "G",
-            ha="center",
-            va="center",
-            fontsize=20,
-            fontweight="bold",
-            color="darkgreen",
-        )
-
-        # Set axis properties
-        ax.set_xlim(0, self.size)
-        ax.set_ylim(0, self.size)
-        ax.set_aspect("equal")
-        ax.set_xlabel("X", fontsize=12)
-        ax.set_ylabel("Y", fontsize=12)
-        ax.set_title(title, fontsize=14, fontweight="bold")
+        # Update legend
         ax.legend(loc="upper left")
-        ax.invert_yaxis()
-
-        plt.tight_layout()
 
         if save_path:
             plt.savefig(save_path, dpi=config.DPI, bbox_inches="tight")
