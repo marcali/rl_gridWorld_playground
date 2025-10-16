@@ -1,5 +1,3 @@
-"""Random Agent - Takes completely random actions for baseline comparison"""
-
 import numpy as np
 from .base import AgentProtocol
 
@@ -19,7 +17,7 @@ class RandomAgent(AgentProtocol):
 
     def act(self, state, epsilon=None, tolerance=None):
         """
-        Select a completely random action
+        Select a random action
 
         Args:
             state: Current state (ignored)
@@ -33,13 +31,12 @@ class RandomAgent(AgentProtocol):
 
     def learn(self, state, action, reward, next_state, done):
         """
-        Random agent doesn't learn - this method does nothing
 
         Args:
-            state: Current state (ignored)
-            action: Action taken (ignored)
-            reward: Reward received (ignored)
-            next_state: Next state (ignored)
-            done: Episode done flag (ignored)
+            state: Current state
+            action: Action taken
+            reward: Reward received
+            next_state: Next state
+            done: Episode done flag
         """
         pass

@@ -1,6 +1,3 @@
-"""Observation processing for the MDP environment"""
-
-
 class ObsTerm:
     """Defines how observations are computed from state,
     ***the task requires only to include current state, creating issue for obstacle avoidance during evaluation

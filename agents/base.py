@@ -1,5 +1,3 @@
-"""Base protocol for all agents"""
-
 from abc import ABC, abstractmethod
 from typing import Union
 

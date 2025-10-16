@@ -1,4 +1,3 @@
-# Your agent implementation goes here
 import numpy as np
 import config
 from .base import AgentProtocol
@@ -6,7 +5,7 @@ from .base import AgentProtocol
 
 class QLearningAgent(AgentProtocol):
     def __init__(self, n_states, n_actions, alpha=config.ALPHA, gamma=config.GAMMA):
-        # Initialize Q-table with small random values (helps break symmetry)
+        # Initialize Q-table with small random values
         self.q_table = np.random.uniform(
             low=-config.Q_TABLE_INIT_RANGE,
             high=config.Q_TABLE_INIT_RANGE,

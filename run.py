@@ -21,7 +21,7 @@ def train(
     env=None,
 ):
     """
-    Train the Q-Learning agent with metrics logging
+    Train the agent with metrics logging
 
     Args:
         n_episodes: Number of training episodes
@@ -95,7 +95,7 @@ def train(
         avg_reward = np.mean(reward_history)
         success_rate = np.mean(success_history) * 100
 
-        # Log metrics (only if logger exists)
+        # Log metrics
         if logger is not None:
             logger.log_training_episode(
                 episode=episode,
@@ -138,18 +138,18 @@ def evaluate(
     silent=False,
     eval_epsilon=None,
     tolerance=None,
-    agent_type="Evaluation",
+    agent_type=None,
     save_paths=None,
 ):
     """
-    Evaluate agent with metrics logging
+    Evaluates agent with metrics logging
 
     Args:
         agent: Agent to evaluate (QLearningAgent, RandomAgent, etc.)
         logger: MetricsLogger instance (can be None for silent mode)
         env: Environment (same as training)
         n_episodes: Number of evaluation episodes
-        silent: If True, suppress output and don't save visualizations
+        silent: If True, suppress output and doesn't save visualizations
         eval_epsilon: Custom evaluation epsilon
         tolerance: Custom tolerance for tie-breaking
         agent_type: String to identify agent type
@@ -162,16 +162,11 @@ def evaluate(
     if save_paths is None:
         save_paths = not silent
 
-    # Print header for non-silent evaluations
-    if not silent:
-        print("\n" + "=" * 60)
-        print(f"{agent_type.upper()} AGENT EVALUATION")
-        print("=" * 60)
-
     total_rewards = []
     total_steps = []
     successes = []
 
+    # Evaluation loop
     for episode in range(n_episodes):
         state = env.reset()
         episode_reward = 0
@@ -201,12 +196,12 @@ def evaluate(
             # Record path
             path.append(env.current_state)
 
-        # Determine success (did agent reach goal?)
+        # Determine success (did agent reach goal)
         success = env.current_state == env.goal_state
 
         # Save path visualization and log metrics
         if save_paths and logger is not None:
-            # All files are named consistently after agent_type
+            # files are named after agent_type
             save_path = logger.experiment_dir / f"{agent_type.lower()}_path_episode_{episode+1}.png"
             title = f"{agent_type} Agent - Episode {episode+1} - {'SUCCESS' if success else 'FAILED'} ({steps} steps)"
             env.render_path(path, title=title, save_path=save_path)
@@ -267,7 +262,7 @@ def evaluate_with_random_baseline(
     Evaluate trained agent and compare against random baseline
 
     Args:
-        agent: Trained agent
+        agent:Previously trained agent
         logger: MetricsLogger instance
         env: Environment (same as training)
         n_episodes: Number of evaluation episodes
@@ -302,33 +297,15 @@ def evaluate_with_random_baseline(
     random_agent = RandomAgent(n_states=config.N_STATES, n_actions=config.N_ACTIONS)
     _, random_results = evaluate(
         agent=random_agent,
-        logger=None,  # Don't log random agent episodes
+        logger=None,
         env=env,
         n_episodes=n_episodes,
         silent=False,
-        eval_epsilon=None,  # Random agent ignores epsilon
-        tolerance=None,  # Random agent ignores tolerance
+        eval_epsilon=None,
+        tolerance=None,
         agent_type="Random",
-        save_paths=False,  # Don't save random agent paths
+        save_paths=False,
     )
-
-    # Print comparison
-    print("\n" + "=" * 60)
-    print("AGENT COMPARISON")
-    print("=" * 60)
-    print(f"{'Metric':<20} {'Trained Agent':<15} {'Random Agent':<15} {'Improvement':<15}")
-    print("-" * 65)
-
-    # Calculate learning effectiveness
-    if random_results["success_rate"] > 0:
-        success_multiplier = trained_results["success_rate"] / random_results["success_rate"]
-        print(f"\n📈 Learning Effectiveness: {success_multiplier:.1f}x better than random")
-    else:
-        print(
-            f"\n📈 Learning Effectiveness: Infinite improvement over random (random never succeeds)"
-        )
-
-    print("=" * 60)
 
     return logger, trained_results, random_results
 
@@ -349,5 +326,5 @@ if __name__ == "__main__":
     create_all_visualizations(metrics_logger.get_experiment_dir(), trained_results, random_results)
 
     print("\n" + "=" * 60)
-    print("✓ TRAINING AND EVALUATION COMPLETE!")
+    print(" TRAINING AND EVALUATION COMPLETE!")
     print("=" * 60)

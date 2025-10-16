@@ -26,7 +26,7 @@ class DoneTerm:
         Returns:
             bool: True if gent reached the goal
         """
-        # Check if agent reached the goal
+        # Check if agent reached the goal or exceeded the maximum number of steps
         if (state[0] == goal_state[0] and state[1] == goal_state[1]) or step_count >= max_steps:
             return True
 

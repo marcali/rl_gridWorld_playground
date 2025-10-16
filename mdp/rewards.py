@@ -1,5 +1,3 @@
-"""Reward functions for the MDP environment"""
-
 import sys
 from pathlib import Path
 

@@ -82,7 +82,10 @@ class Environment:
             attempts += 1
 
     def reset(self):
-        """Reset environment to starting state"""
+        """Reset environment to starting state
+        Returns:
+            observation: Current observation
+        """
 
         # Reset to starting state
         self.current_state = self.start_state
@@ -155,13 +158,9 @@ class Environment:
 
         return observation, reward, done
 
-    def render(self):
-        """Visualize the current environment state using matplotlib"""
-        return self._draw_environment()
-
-    def _draw_environment(self, path=None, title=None, show_agent=True):
+    def render(self, path=None, title=None, show_agent=True):
         """
-        Draw the environment
+        Visualize the current environment state using matplotlib
 
         Args:
             path: List of states (tuples) representing a path to overlay
@@ -303,7 +302,7 @@ class Environment:
             matplotlib figure
         """
         # Use the shared drawing method with path visualization
-        fig = self._draw_environment(path=path, title=title, show_agent=False)
+        fig = self.render(path=path, title=title, show_agent=False)
 
         # Add enhanced path visualization features
         ax = fig.axes[0]
@@ -343,7 +342,6 @@ class Environment:
 
         if save_path:
             plt.savefig(save_path, dpi=config.DPI, bbox_inches="tight")
-            print(f"✓ Path visualization saved to: {save_path}")
             plt.close(fig)
         else:
             plt.show()
