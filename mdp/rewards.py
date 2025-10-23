@@ -2,7 +2,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
-import config
+from config import base_config
 
 
 class RewTerm:
@@ -10,9 +10,9 @@ class RewTerm:
 
     def __init__(
         self,
-        reward_goal=config.REWARD_GOAL,
-        reward_step=config.REWARD_STEP,
-        reward_collision=config.REWARD_COLLISION,
+        reward_goal=base_config.REWARD_GOAL,
+        reward_step=base_config.REWARD_STEP,
+        reward_collision=base_config.REWARD_COLLISION,
     ):
         self.reward_goal = reward_goal
         self.reward_step = reward_step

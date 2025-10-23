@@ -5,10 +5,10 @@ import pandas as pd
 import itertools
 from datetime import datetime
 from pathlib import Path
-from environment import Environment
+from enviroment import Environment
 from agents import QLearningAgent
-import config
-from run import train, evaluate
+from config import base_config, experiement_config as exp_config
+from training import Trainer, Evaluator
 import matplotlib.pyplot as plt
 
 
@@ -24,33 +24,40 @@ def train_and_evaluate(
     env,
 ):
     """
-    Train agent with given hyperparameters and evaluate using run.py functions
+    Train agent with given hyperparameters and evaluate using new modular approach
 
     Returns:
         Dictionary with results
     """
-    # Train agent using run.py train function in silent mode
+    # Create agent with given hyperparameters
+    agent = QLearningAgent(
+        n_states=base_config.N_STATES, n_actions=base_config.N_ACTIONS, alpha=alpha, gamma=gamma
+    )
+
+    # Create trainer and evaluator
+    trainer = Trainer()
+    evaluator = Evaluator()
+
+    # Train agent using new modular approach
     print(f"    Training for {n_episodes} episodes...")
-    agent, logger, training_success_rate = train(
+    trained_agent, logger, training_success_rate = trainer.train(
+        agent=agent,
+        env=env,
         n_episodes=n_episodes,
         epsilon_start=epsilon_start,
         epsilon_end=epsilon_end,
         epsilon_decay=epsilon_decay,
-        alpha=alpha,
-        gamma=gamma,
-        experiment_name=None,
         silent=True,
-        env=env,
     )
     print(f"    Training complete. Success rate: {training_success_rate:.1f}%")
 
-    # Evaluate trained agent using run.py evaluate function with custom epsilon and tolerance
-    print(f"    Evaluating for {config.GRID_SEARCH_N_EVAL} episodes...")
-    eval_results = evaluate(
-        agent,
-        None,
-        env,
-        n_episodes=config.GRID_SEARCH_N_EVAL,
+    # Evaluate trained agent using new modular approach
+    print(f"    Evaluating for {exp_config.GRID_SEARCH_N_EVAL} episodes...")
+    eval_results = evaluator.evaluate(
+        agent=trained_agent,
+        logger=None,
+        env=env,
+        n_episodes=exp_config.GRID_SEARCH_N_EVAL,
         silent=True,
         eval_epsilon=eval_epsilon,
         tolerance=tolerance,
@@ -85,13 +92,13 @@ def run_grid_search():
     # Create parameter grid
     param_grid = list(
         itertools.product(
-            config.GRID_SEARCH_ALPHA,
-            config.GRID_SEARCH_GAMMA,
-            config.GRID_SEARCH_EPSILON_START,
-            config.GRID_SEARCH_EPSILON_END,
-            config.GRID_SEARCH_EPSILON_DECAY,
-            config.GRID_SEARCH_EVAL_EPSILON,
-            config.GRID_SEARCH_TOLERANCE,
+            exp_config.GRID_SEARCH_ALPHA,
+            exp_config.GRID_SEARCH_GAMMA,
+            exp_config.GRID_SEARCH_EPSILON_START,
+            exp_config.GRID_SEARCH_EPSILON_END,
+            exp_config.GRID_SEARCH_EPSILON_DECAY,
+            exp_config.GRID_SEARCH_EVAL_EPSILON,
+            exp_config.GRID_SEARCH_TOLERANCE,
         )
     )
 
@@ -126,7 +133,7 @@ def run_grid_search():
                 epsilon_decay=epsilon_decay,
                 eval_epsilon=eval_epsilon,
                 tolerance=tolerance,
-                n_episodes=config.GRID_SEARCH_N_EPISODES,
+                n_episodes=exp_config.GRID_SEARCH_N_EPISODES,
                 env=env,
             )
             results.append(result)

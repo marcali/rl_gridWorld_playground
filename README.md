@@ -63,14 +63,47 @@ This will:
 - Generate visualizations and save to `results/YYYYMMDD_HHMMSS/`
 - Create path visualizations for each evaluation episode
 
+## Modular Agent Usage
+
+The codebase now supports modular agent initialization, making it easy to create different scripts with different agents:
+
+### Basic Usage
+
+```python
+from enviroment import Environment
+from agents import QLearningAgent
+from training import Trainer, Evaluator
+
+# Create environment and agent
+env = Environment()
+agent = QLearningAgent(n_states=100, n_actions=4, alpha=0.1, gamma=0.95)
+
+# Create trainer and evaluator
+trainer = Trainer()
+evaluator = Evaluator()
+
+# Train the agent
+trained_agent, logger = trainer.train(agent=agent, env=env, n_episodes=1000)
+
+# Evaluate the agent
+results = evaluator.evaluate(agent=trained_agent, logger=logger, env=env)
+```
+
+### Example Scripts
+
+- `example_qlearning.py` - Shows how to train a single Q-Learning agent
+- `example_multi_agent.py` - Shows how to compare multiple agents with different hyperparameters
+- `run.py` - Main training script with default settings
+- `grid_search.py` - Hyperparameter optimization using the new modular approach
+
 ## Configuration
 
-**All settings are in `config.py`**
+**All settings are in the `config/` directory**
 
 ### Environment Settings
 
 ```python
-# In config.py
+# In config/base_config.py
 GRID_SIZE = 10              # Size of the grid (10x10)
 START_STATE = (0, 0)        # Agent starts top-left
 GOAL_STATE = (9, 9)         # Goal at bottom-right
@@ -184,9 +217,18 @@ results/20251014_HHMMSS/
 
 ```
 rl_tech_test/
-├── config.py                 # Default values/seeting
+├── config/                   # Configuration files
+│   ├── base_config.py        # Environment and general settings
+│   └── experiement_config.py # Q-learning hyperparameters
 ├── run.py                    # Main training script
-├── environment.py            # GridWorld environment
+├── example_qlearning.py      # Example: Single agent training
+├── example_multi_agent.py    # Example: Multi-agent comparison
+├── training/                 # Training and evaluation modules
+│   ├── trainer.py           # Training logic
+│   └── evaluator.py         # Evaluation logic
+├── enviroment/               # Environment implementations
+│   ├── base.py              # Abstract base environment class
+│   └── grid_world.py        # GridWorld environment implementation
 ├── agents/
 │   └── QLearningAgent.py     # Q-Learning implementation
 ├── mdp/

@@ -1,14 +1,19 @@
-"""Main environment that integrates GridWorld with MDP components"""
+"""GridWorld environment implementation"""
 
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from mdp import DoneTerm, RewTerm, ObsTerm
-import config
+from config import base_config
+from .base import BaseEnvironment
 
 
-class Environment:
-    """Sets environment for the agent to interact with
+class GridWorldEnvironment(BaseEnvironment):
+    """GridWorld environment implementation
+
+    A grid-based environment where an agent must navigate from start to goal
+    while avoiding obstacles.
+
     Args:
         size: Size of the grid
         max_steps: Maximum number of steps per episode
@@ -20,13 +25,15 @@ class Environment:
 
     def __init__(
         self,
-        size=config.GRID_SIZE,
-        max_steps=config.MAX_STEPS_PER_EPISODE,
-        agent_pos=config.START_STATE,
-        goal_pos=config.GOAL_STATE,
-        n_static_obstacles=config.N_STATIC_OBSTACLES,
-        n_random_obstacles=config.N_RANDOM_OBSTACLES,
+        size=base_config.GRID_SIZE,
+        max_steps=base_config.MAX_STEPS_PER_EPISODE,
+        agent_pos=base_config.START_STATE,
+        goal_pos=base_config.GOAL_STATE,
+        n_static_obstacles=base_config.N_STATIC_OBSTACLES,
+        n_random_obstacles=base_config.N_RANDOM_OBSTACLES,
     ):
+        super().__init__()
+
         # Base environment
         self.size = size
         self.max_steps = max_steps
@@ -47,10 +54,6 @@ class Environment:
         self.done_term = DoneTerm()
         self.rew_term = RewTerm()
         self.obs_term = ObsTerm()
-
-        # Episode tracking
-        self.step_count = 0
-        self.current_state = None
 
     def _add_obstacles(self, n_obstacles, obstacle_type=1):
         """Add obstacles to the grid while ensuring start position remains accessible
@@ -83,10 +86,10 @@ class Environment:
 
     def reset(self):
         """Reset environment to starting state
+
         Returns:
             observation: Current observation
         """
-
         # Reset to starting state
         self.current_state = self.start_state
 
@@ -171,7 +174,7 @@ class Environment:
             matplotlib figure
         """
         # Create figure and axis
-        fig, ax = plt.subplots(1, 1, figsize=config.FIGURE_SIZE)
+        fig, ax = plt.subplots(1, 1, figsize=base_config.FIGURE_SIZE)
 
         # Draw grid
         for i in range(self.size + 1):
@@ -341,7 +344,7 @@ class Environment:
         ax.legend(loc="upper left")
 
         if save_path:
-            plt.savefig(save_path, dpi=config.DPI, bbox_inches="tight")
+            plt.savefig(save_path, dpi=base_config.DPI, bbox_inches="tight")
             plt.close(fig)
         else:
             plt.show()
@@ -393,3 +396,13 @@ class Environment:
                     queue.append(next_pos)
 
         return False
+
+    @property
+    def action_space_size(self) -> int:
+        """Return the number of possible actions (4: up, down, left, right)"""
+        return 4
+
+    @property
+    def state_space_size(self) -> int:
+        """Return the number of possible states (grid size squared)"""
+        return self.size * self.size

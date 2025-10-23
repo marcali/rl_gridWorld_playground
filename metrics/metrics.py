@@ -52,6 +52,13 @@ class MetricsLogger:
                     "goal_rewards",
                     "step_penalties",
                     "collision_penalties",
+                    "mean_q_value",
+                    "std_q_value",
+                    "max_q_value",
+                    "min_q_value",
+                    "q_value_range",
+                    "explored_states",
+                    "convergence_rate",
                     "timestamp",
                 ]
             )
@@ -71,6 +78,8 @@ class MetricsLogger:
         goal_rewards=0,
         step_penalties=0,
         collision_penalties=0,
+        q_stats=None,
+        convergence_rate=0.0,
     ):
         """
         Log metrics for a training episode
@@ -84,8 +93,18 @@ class MetricsLogger:
             goal_rewards: Rewards from reaching goals
             step_penalties: Penalties from steps taken
             collision_penalties: Penalties from collisions
+            q_stats: Q-value statistics dictionary
+            convergence_rate: Convergence rate metric
         """
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        # Extract Q-value statistics
+        mean_q = q_stats["mean_q"] if q_stats else 0.0
+        std_q = q_stats["std_q"] if q_stats else 0.0
+        max_q = q_stats["max_q"] if q_stats else 0.0
+        min_q = q_stats["min_q"] if q_stats else 0.0
+        q_range = q_stats["q_range"] if q_stats else 0.0
+        explored_states = q_stats["non_zero_states"] if q_stats else 0
 
         # Store in memory
         self.training_data.append(
@@ -98,6 +117,13 @@ class MetricsLogger:
                 "goal_rewards": goal_rewards,
                 "step_penalties": step_penalties,
                 "collision_penalties": collision_penalties,
+                "mean_q_value": mean_q,
+                "std_q_value": std_q,
+                "max_q_value": max_q,
+                "min_q_value": min_q,
+                "q_value_range": q_range,
+                "explored_states": explored_states,
+                "convergence_rate": convergence_rate,
                 "timestamp": timestamp,
             }
         )
@@ -115,6 +141,13 @@ class MetricsLogger:
                     goal_rewards,
                     step_penalties,
                     collision_penalties,
+                    mean_q,
+                    std_q,
+                    max_q,
+                    min_q,
+                    q_range,
+                    explored_states,
+                    convergence_rate,
                     timestamp,
                 ]
             )
