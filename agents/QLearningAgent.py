@@ -1,6 +1,8 @@
 import numpy as np
+import pickle
+from pathlib import Path
 from config import base_config, experiement_config as exp_config
-from .base import AgentProtocol
+from .agent_protocol import AgentProtocol
 
 
 class QLearningAgent(AgentProtocol):
@@ -96,3 +98,50 @@ class QLearningAgent(AgentProtocol):
                 else 0
             ),
         }
+
+    def save(self, path: str) -> None:
+        """
+        Save agent parameters to file
+
+        Args:
+            path: File path where to save the agent parameters
+        """
+        # Create directory if it doesn't exist
+        Path(path).parent.mkdir(parents=True, exist_ok=True)
+
+        # Prepare data to save
+        agent_data = {
+            "q_table": self.q_table,
+            "n_actions": self.n_actions,
+            "alpha": self.alpha,
+            "gamma": self.gamma,
+            "q_value_history": self.q_value_history,
+            "episode_q_stats": self.episode_q_stats,
+        }
+
+        # Save to file
+        with open(path, "wb") as f:
+            pickle.dump(agent_data, f)
+
+    def load(self, path: str) -> None:
+        """
+        Load agent parameters from file
+
+        Args:
+            path: File path from where to load the agent parameters
+        """
+        # Check if file exists
+        if not Path(path).exists():
+            raise FileNotFoundError(f"Agent file not found: {path}")
+
+        # Load data from file
+        with open(path, "rb") as f:
+            agent_data = pickle.load(f)
+
+        # Restore agent parameters
+        self.q_table = agent_data["q_table"]
+        self.n_actions = agent_data["n_actions"]
+        self.alpha = agent_data["alpha"]
+        self.gamma = agent_data["gamma"]
+        self.q_value_history = agent_data.get("q_value_history", [])
+        self.episode_q_stats = agent_data.get("episode_q_stats", [])

@@ -87,6 +87,13 @@ trained_agent, logger = trainer.train(agent=agent, env=env, n_episodes=1000)
 
 # Evaluate the agent
 results = evaluator.evaluate(agent=trained_agent, logger=logger, env=env)
+
+# Save the trained agent
+trained_agent.save("my_trained_agent.pkl")
+
+# Load a previously trained agent
+new_agent = QLearningAgent(n_states=100, n_actions=4)
+new_agent.load("my_trained_agent.pkl")
 ```
 
 ### Example Scripts
@@ -227,7 +234,7 @@ rl_tech_test/
 │   ├── trainer.py           # Training logic
 │   └── evaluator.py         # Evaluation logic
 ├── enviroment/               # Environment implementations
-│   ├── base.py              # Abstract base environment class
+│   ├── base_enviroment.py   # Abstract base environment class
 │   └── grid_world.py        # GridWorld environment implementation
 ├── agents/
 │   └── QLearningAgent.py     # Q-Learning implementation

@@ -1,5 +1,7 @@
 import numpy as np
-from .base import AgentProtocol
+import pickle
+from pathlib import Path
+from .agent_protocol import AgentProtocol
 
 
 class RandomAgent(AgentProtocol):
@@ -40,3 +42,38 @@ class RandomAgent(AgentProtocol):
             done: Episode done flag
         """
         pass
+
+    def save(self, path: str) -> None:
+        """
+        Save agent parameters to file
+
+        Args:
+            path: File path where to save the agent parameters
+        """
+        # Create directory if it doesn't exist
+        Path(path).parent.mkdir(parents=True, exist_ok=True)
+
+        # Prepare data to save (RandomAgent only has n_actions)
+        agent_data = {"n_actions": self.n_actions}
+
+        # Save to file
+        with open(path, "wb") as f:
+            pickle.dump(agent_data, f)
+
+    def load(self, path: str) -> None:
+        """
+        Load agent parameters from file
+
+        Args:
+            path: File path from where to load the agent parameters
+        """
+        # Check if file exists
+        if not Path(path).exists():
+            raise FileNotFoundError(f"Agent file not found: {path}")
+
+        # Load data from file
+        with open(path, "rb") as f:
+            agent_data = pickle.load(f)
+
+        # Restore agent parameters
+        self.n_actions = agent_data["n_actions"]

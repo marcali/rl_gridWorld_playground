@@ -33,3 +33,23 @@ class AgentProtocol(ABC):
             done: Whether the episode is finished
         """
         pass
+
+    @abstractmethod
+    def save(self, path: str) -> None:
+        """
+        Save agent parameters to file
+
+        Args:
+            path: File path where to save the agent parameters
+        """
+        pass
+
+    @abstractmethod
+    def load(self, path: str) -> None:
+        """
+        Load agent parameters from file
+
+        Args:
+            path: File path from where to load the agent parameters
+        """
+        pass

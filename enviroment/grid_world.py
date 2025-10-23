@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from mdp import DoneTerm, RewTerm, ObsTerm
 from config import base_config
-from .base import BaseEnvironment
+from .base_enviroment import BaseEnvironment
 
 
 class GridWorldEnvironment(BaseEnvironment):

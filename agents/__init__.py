@@ -1,6 +1,6 @@
 """Agent implementations"""
 
-from .base import AgentProtocol
+from .agent_protocol import AgentProtocol
 from .QLearningAgent import QLearningAgent
 from .RandomAgent import RandomAgent
 
