@@ -3,6 +3,7 @@
 import numpy as np
 from agents import RandomAgent, AgentProtocol
 from config import base_config, experiement_config as exp_config
+from experience import Trajectory
 
 
 class Evaluator:
@@ -59,13 +60,17 @@ class Evaluator:
 
         # Evaluation loop
         for episode in range(n_episodes):
+            # Create trajectory for this episode
+            trajectory = Trajectory(
+                episode_id=f"eval_{agent_type.lower()}_episode_{episode+1}",
+                agent_id=agent_type or "agent",
+                environment_id="grid_world",
+            )
+
             state = env.reset()
             episode_reward = 0
             steps = 0
             done = False
-
-            # Track path for visualization
-            path = [env.current_state]
 
             while not done and steps < base_config.MAX_EVAL_STEPS:
                 # Use custom eval_epsilon if provided, otherwise use config default
@@ -83,19 +88,24 @@ class Evaluator:
                 # Take step
                 next_state, reward, done = env.step(action)
 
+                # Add step to trajectory
+                trajectory.add_step(
+                    state=state, action=action, reward=reward, next_state=next_state, done=done
+                )
+
                 # Update tracking
                 episode_reward += reward
                 steps += 1
                 state = next_state
-
-                # Record path
-                path.append(env.current_state)
 
             # Determine success (did agent reach goal)
             success = env.current_state == env.goal_state
 
             # Save path visualization and log metrics
             if save_paths and logger is not None:
+                # Convert trajectory to path format for rendering
+                path = trajectory.get_state_sequence()
+
                 # files are named after agent_type
                 save_path = (
                     logger.experiment_dir / f"{agent_type.lower()}_path_episode_{episode+1}.png"
