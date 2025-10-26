@@ -3,7 +3,9 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
-from mdp import DoneTerm, RewTerm, ObsTerm
+from mdp import DoneTerm, RewardManager, ObsTerm
+from mdp.curriculum import CurriculumManager
+from mdp.events import EventManager
 from config import base_config
 from .base_enviroment import BaseEnvironment
 
@@ -31,6 +33,9 @@ class GridWorldEnvironment(BaseEnvironment):
         goal_pos=base_config.GOAL_STATE,
         n_static_obstacles=base_config.N_STATIC_OBSTACLES,
         n_random_obstacles=base_config.N_RANDOM_OBSTACLES,
+        rewards=None,
+        curriculum_rules=None,
+        event_terms=None,
     ):
         super().__init__()
 
@@ -44,36 +49,45 @@ class GridWorldEnvironment(BaseEnvironment):
         self.n_static_obstacles = n_static_obstacles
         self.n_random_obstacles = n_random_obstacles
 
+        # Curriculum learning configuration
+        self.curriculum_rules = curriculum_rules
+        self.current_episode = 0
+        self.step_count = 0
+
+        # Event system configuration
+        self.event_manager = EventManager(event_terms) if event_terms else None
+
         # Initialize grid (0 = free, 1 = static obstacle, 2 = random obstacle)
         self.grid = np.zeros((self.size, self.size), dtype=int)
 
-        # Add static obstacles only (random obstacles added in reset)
-        self._add_obstacles(self.n_static_obstacles, obstacle_type=1)
+        # Add static obstacles at initialization (not part of events)
+        self._add_static_obstacles()
 
         # MDP components
         self.done_term = DoneTerm()
-        self.rew_term = RewTerm()
+
+        # Create curriculum manager if rules are provided
+        curriculum_manager = None
+        if curriculum_rules:
+            curriculum_manager = CurriculumManager(curriculum_rules)
+
+        self.rew_term = RewardManager(rewards, curriculum_manager)
         self.obs_term = ObsTerm()
 
-    def _add_obstacles(self, n_obstacles, obstacle_type=1):
-        """Add obstacles to the grid while ensuring start position remains accessible
-
-        Args:
-            n_obstacles: Number of obstacles to add
-            obstacle_type: 1 for static, 2 for random (per-episode)
-        """
+    def _add_static_obstacles(self):
+        """Add static obstacles to the grid while ensuring start position remains accessible"""
         obstacles_added = 0
-        max_attempts = n_obstacles * 20
+        max_attempts = self.n_static_obstacles * 20
         attempts = 0
 
-        while obstacles_added < n_obstacles and attempts < max_attempts:
+        while obstacles_added < self.n_static_obstacles and attempts < max_attempts:
             y = np.random.randint(0, self.size)
             x = np.random.randint(0, self.size)
 
             # Don't place obstacles on start, goal, or existing obstacles
             if (y, x) != self.start_state and (y, x) != self.goal_state and self.grid[y, x] == 0:
                 # Temporarily place obstacle
-                self.grid[y, x] = obstacle_type
+                self.grid[y, x] = 1
 
                 # Check if start position is still accessible (path exists to goal)
                 if self._does_path_exists(self.start_state, self.goal_state):
@@ -96,10 +110,17 @@ class GridWorldEnvironment(BaseEnvironment):
         # Clear random obstacles from previous episode (type 2)
         self.grid[self.grid == 2] = 0
 
-        # Add new random obstacles for this episode
-        self._add_obstacles(self.n_random_obstacles, obstacle_type=2)
+        # Apply events if event manager exists
+        if self.event_manager:
+            self.grid = self.event_manager.apply_events(
+                self.grid, self.current_state, self.goal_state
+            )
 
         self.step_count = 0
+
+        # Increment episode counter for curriculum learning
+        self.current_episode += 1
+        self.rew_term.update_context(step_count=self.step_count, episode_count=self.current_episode)
 
         # Return observation
         return self.obs_term(self.current_state, self.size)
@@ -149,6 +170,9 @@ class GridWorldEnvironment(BaseEnvironment):
 
         # Increment step counter
         self.step_count += 1
+
+        # Update curriculum learning context
+        self.rew_term.update_context(step_count=self.step_count, episode_count=self.current_episode)
 
         # Check if done
         done = self.done_term(next_state, self.goal_state, self.max_steps, self.step_count)

@@ -4,12 +4,20 @@ from enviroment import Environment
 from agents import QLearningAgent
 from training import Trainer, Evaluator
 from metrics.visualization import create_all_visualizations
+from mdp import GoalReachedReward, StepPenaltyReward, CollisionPenaltyReward, RandomObstacleEvent
 from config import base_config, experiement_config as exp_config
 
 
 if __name__ == "__main__":
-    # Create environment
-    env = Environment()
+    # Create environment with specific rewards and random obstacles
+    env = Environment(
+        rewards=[
+            GoalReachedReward(base_config.REWARD_GOAL),
+            StepPenaltyReward(base_config.REWARD_STEP),
+            CollisionPenaltyReward(base_config.REWARD_COLLISION),
+        ],
+        event_terms=[RandomObstacleEvent(n_obstacles=base_config.N_RANDOM_OBSTACLES)],
+    )
 
     # Create agent with default parameters
     agent = QLearningAgent(

@@ -1,6 +1,8 @@
 """Training module for RL agents"""
 
 import numpy as np
+import torch
+import torch.nn.functional as F
 from collections import deque
 from agents import QLearningAgent, AgentProtocol
 from metrics import MetricsLogger
@@ -81,7 +83,11 @@ class Trainer:
                 next_state, reward, done = env.step(action)
 
                 # Learn from experience
-                agent.learn(state, action, reward, next_state, done)
+                agent.learn(state, action, reward, next_state, done, env.goal_state)
+
+                # Perform training step for DQN agents
+                if hasattr(agent, "q_network"):  # Check if it's a DQN agent
+                    self._train_dqn(agent)
 
                 # Track reward components
                 if reward == base_config.REWARD_GOAL:  # Goal reached
@@ -156,3 +162,45 @@ class Trainer:
             return agent, logger, success_rate
         else:
             return agent, logger
+
+    def _train_dqn(self, agent) -> None:
+        """Train DQN agent on a batch of experiences"""
+        if len(agent.memory) < agent.batch_size:
+            return
+
+        # Sample experiences from replay buffer
+        experiences = agent.memory.sample(agent.batch_size)
+
+        # Convert experiences to tensors
+        states = torch.stack(
+            [agent._state_to_tensor(exp.state).squeeze(0) for exp in experiences]
+        ).to(agent.device)
+        actions = torch.tensor([exp.action for exp in experiences], dtype=torch.long).to(
+            agent.device
+        )
+        rewards = torch.tensor([exp.reward for exp in experiences], dtype=torch.float32).to(
+            agent.device
+        )
+        next_states = torch.stack(
+            [agent._state_to_tensor(exp.next_state).squeeze(0) for exp in experiences]
+        ).to(agent.device)
+        dones = torch.tensor([exp.done for exp in experiences], dtype=torch.bool).to(agent.device)
+
+        # Current Q values
+        current_q_values = agent.q_network(states).gather(1, actions.unsqueeze(1))
+
+        # Next Q values from target network
+        with torch.no_grad():
+            next_q_values = agent.target_network(next_states).max(1)[0]
+            target_q_values = rewards + (agent.gamma * next_q_values * ~dones)
+
+        # Compute loss
+        loss = F.mse_loss(current_q_values.squeeze(), target_q_values)
+
+        # Optimize
+        agent.optimizer.zero_grad()
+        loss.backward()
+        agent.optimizer.step()
+
+        # Track loss
+        agent.loss_history.append(loss.item())

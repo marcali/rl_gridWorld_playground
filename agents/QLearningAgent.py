@@ -37,7 +37,7 @@ class QLearningAgent(AgentProtocol):
             # Pick randomly among tied actions
             return int(np.random.choice(tied_actions))
 
-    def learn(self, state, action, reward, next_state, done):
+    def learn(self, state, action, reward, next_state, done, goal_state=None):
         """Update Q-values based on experience"""
         # select action with highest Q-value
         best_next_action = np.argmax(self.q_table[next_state])

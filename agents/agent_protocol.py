@@ -21,7 +21,9 @@ class AgentProtocol(ABC):
         pass
 
     @abstractmethod
-    def learn(self, state: int, action: int, reward: float, next_state: int, done: bool) -> None:
+    def learn(
+        self, state: int, action: int, reward: float, next_state: int, done: bool, goal_state=None
+    ) -> None:
         """
         Update agent's knowledge based on experience
 
@@ -31,6 +33,7 @@ class AgentProtocol(ABC):
             reward: Reward received for taking action in state
             next_state: State reached after taking action
             done: Whether the episode is finished
+            goal_state: Goal state for hindsight experience replay (optional)
         """
         pass
 

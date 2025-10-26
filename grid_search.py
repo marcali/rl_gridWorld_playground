@@ -7,6 +7,7 @@ from datetime import datetime
 from pathlib import Path
 from enviroment import Environment
 from agents import QLearningAgent
+from mdp import GoalReachedReward, StepPenaltyReward, CollisionPenaltyReward, RandomObstacleEvent
 from config import base_config, experiement_config as exp_config
 from training import Trainer, Evaluator
 import matplotlib.pyplot as plt
@@ -104,8 +105,15 @@ def run_grid_search():
 
     total_configs = len(param_grid)
 
-    # Create environment (reused for all experiments)
-    env = Environment()
+    # Create environment with specific rewards and random obstacles (reused for all experiments)
+    env = Environment(
+        rewards=[
+            GoalReachedReward(base_config.REWARD_GOAL),
+            StepPenaltyReward(base_config.REWARD_STEP),
+            CollisionPenaltyReward(base_config.REWARD_COLLISION),
+        ],
+        event_terms=[RandomObstacleEvent(n_obstacles=base_config.N_RANDOM_OBSTACLES)],
+    )
 
     # Store results
     results = []

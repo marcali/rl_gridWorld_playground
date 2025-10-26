@@ -31,8 +31,9 @@ class RandomAgent(AgentProtocol):
         """
         return np.random.randint(self.n_actions)
 
-    def learn(self, state, action, reward, next_state, done):
+    def learn(self, state, action, reward, next_state, done, goal_state=None):
         """
+        Random agent doesn't learn
 
         Args:
             state: Current state
@@ -40,6 +41,7 @@ class RandomAgent(AgentProtocol):
             reward: Reward received
             next_state: Next state
             done: Episode done flag
+            goal_state: Goal state
         """
         pass
 

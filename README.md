@@ -63,45 +63,118 @@ This will:
 - Generate visualizations and save to `results/YYYYMMDD_HHMMSS/`
 - Create path visualizations for each evaluation episode
 
+## Curriculum Learning
+
+The environment supports curriculum learning, allowing you to modify rewards over time based on steps or episodes. This is useful for gradually increasing difficulty or changing reward structure as the agent learns.
+
+### Basic Curriculum Learning
+
+The curriculum learning system allows you to modify rewards over time based on steps or episodes. You can create base rewards and define curriculum rules that trigger modifications at specific thresholds.
+
+### Curriculum Actions
+
+- **`modify_existing`**: Modify existing reward values using a multiplier
+- **`add_new`**: Add new reward terms
+- **`remove_existing`**: Remove existing reward terms by class name
+
+### Curriculum Rule Types
+
+- **`StepBasedCurriculum`**: Triggers after a certain number of steps
+- **`EpisodeBasedCurriculum`**: Triggers after a certain number of episodes
+
+### Advanced Curriculum Learning
+
+You can create more complex curricula with multiple modifications, gradually increasing difficulty, adding new rewards at different stages, and removing penalties as the agent improves.
+
+## Available Agents
+
+The codebase includes several agent implementations:
+
+### Q-Learning Agent
+Traditional tabular Q-learning with epsilon-greedy exploration.
+
+### Random Agent
+Baseline agent that takes random actions for comparison.
+
+### DQN Agent (NEW!)
+Deep Q-Network with 3-layer neural network and optional hindsight experience replay. The DQN agent can be configured with various hyperparameters including learning rate, gamma, epsilon settings, batch size, memory size, target update frequency, and hidden layer size. It supports both standard experience replay and hindsight experience replay for improved sample efficiency.
+
+#### DQN Features:
+- **3-layer neural network** with ReLU activations
+- **Standard Experience Replay** or **Hindsight Experience Replay** (optional)
+- **Target network** for stable training
+- **Epsilon-greedy exploration** with decay
+- **Automatic device detection** (CPU/CUDA)
+- **Save/load functionality** for trained models
+- **Clean separation of concerns** - no reward calculation in agent
+- **Protocol compliance** - follows same interface as other agents
+- **Training separation** - neural network training handled by trainer, not agent
+
+#### Experience Replay Options:
+- **Standard Experience Replay**: Traditional replay buffer for DQN training
+- **Hindsight Experience Replay**: Relabels failed episodes with alternative goals for better sample efficiency
+
+#### Training Pattern:
+The DQN agent follows the same pattern as other agents:
+- **`learn()`**: Stores experiences in replay buffer, updates target network, decays epsilon
+- **Training logic**: Handled by the trainer (detected by presence of `q_network` attribute)
+- **`act()`**: Selects actions using epsilon-greedy policy
+
+## Event System
+
+The environment supports an event system for dynamic changes like obstacle generation:
+
+### Basic Event Usage
+
+```python
+from enviroment import Environment
+from mdp import RandomObstacleEvent, EventManager
+
+# Create environment with custom events (only random obstacles)
+env = Environment(
+    event_terms=[
+        RandomObstacleEvent(n_obstacles=3)     # Random obstacles at reset
+    ]
+)
+
+# Or no events (static obstacles only, no random obstacles)
+env = Environment()  # Only static obstacles, no events
+```
+
+### Event Types
+
+- **`RandomObstacleEvent`**: Adds random obstacles that change each episode
+- **`EventManager`**: Manages multiple event terms and applies them
+
+**Note**: Static obstacles are handled separately and are not part of the event system.
+
+### Custom Events
+
+You can create custom event terms by inheriting from `EventTerm`:
+
+```python
+from mdp import EventTerm
+
+class CustomEvent(EventTerm):
+    def apply(self, grid, state, goal_state):
+        # Your custom event logic
+        return modified_grid
+```
+
 ## Modular Agent Usage
 
 The codebase now supports modular agent initialization, making it easy to create different scripts with different agents:
 
 ### Basic Usage
 
-```python
-from enviroment import Environment
-from agents import QLearningAgent
-from training import Trainer, Evaluator
-
-# Create environment and agent
-env = Environment()
-agent = QLearningAgent(n_states=100, n_actions=4, alpha=0.1, gamma=0.95)
-
-# Create trainer and evaluator
-trainer = Trainer()
-evaluator = Evaluator()
-
-# Train the agent
-trained_agent, logger = trainer.train(agent=agent, env=env, n_episodes=1000)
-
-# Evaluate the agent
-results = evaluator.evaluate(agent=trained_agent, logger=logger, env=env)
-
-# Save the trained agent
-trained_agent.save("my_trained_agent.pkl")
-
-# Load a previously trained agent
-new_agent = QLearningAgent(n_states=100, n_actions=4)
-new_agent.load("my_trained_agent.pkl")
-```
+The codebase supports modular agent initialization, making it easy to create different scripts with different agents. You can create environments and agents, use trainers and evaluators, and save/load trained models. The modular reward system allows you to specify custom reward combinations when creating environments. The main scripts (`run.py` and `grid_search.py`) include random obstacle events for more challenging training.
 
 ### Example Scripts
 
 - `example_qlearning.py` - Shows how to train a single Q-Learning agent
 - `example_multi_agent.py` - Shows how to compare multiple agents with different hyperparameters
-- `run.py` - Main training script with default settings
-- `grid_search.py` - Hyperparameter optimization using the new modular approach
+- `run.py` - Main training script with random obstacle events
+- `grid_search.py` - Hyperparameter optimization with random obstacle events
 
 ## Configuration
 
@@ -109,43 +182,19 @@ new_agent.load("my_trained_agent.pkl")
 
 ### Environment Settings
 
-```python
-# In config/base_config.py
-GRID_SIZE = 10              # Size of the grid (10x10)
-START_STATE = (0, 0)        # Agent starts top-left
-GOAL_STATE = (9, 9)         # Goal at bottom-right
-
-N_STATIC_OBSTACLES = 7      # Red obstacles (stay same)
-N_RANDOM_OBSTACLES = 3      # Orange obstacles (change each episode)
-```
+The environment configuration includes grid size, starting and goal positions, and obstacle settings.
 
 ### Reward Values
 
-```python
-REWARD_GOAL = 100.0         # +100 for reaching goal
-REWARD_STEP = -1.0          # -1 per step taken
-REWARD_COLLISION = -10.0    # -10 for hitting wall/obstacle
-```
+The reward system includes goal rewards, step penalties, and collision penalties with configurable values.
 
 ### Training Hyperparameters
 
-```python
-N_EPISODES = 1500           # Number of training episodes
-EPSILON_START = 1.0         # Start with 100% exploration
-EPSILON_END = 0.05          # End with 5% exploration
-EPSILON_DECAY = 0.999       # Decay rate
-
-ALPHA = 0.1                 # Learning rate
-GAMMA = 0.95                # Discount factor
-```
+Training parameters include episode count, epsilon settings for exploration, learning rate, and discount factor.
 
 ### Evaluation Settings
 
-```python
-N_EVAL_EPISODES = 10         # Number of evaluation episodes
-EVAL_EPSILON = 0.05         # 5% exploration during evaluation
-MAX_EVAL_STEPS = 100        # Max steps before timeout
-```
+Evaluation parameters include episode count, exploration rate during evaluation, and maximum steps per episode.
 
 ### Grid Search for Optimal Hyperparameters
 
@@ -167,33 +216,7 @@ Results saved to `results/grid_search/grid_search_YYYYMMDD_HHMMSS.csv`
 
 ### Custom Training Scripts
 
-To Create training script:
-
-```python
-from environment import Environment
-from agents import QLearningAgent
-from run import train, evaluate
-
-# Create environment
-env = Environment(
-    size=12,                    # Custom grid size
-    n_static_obstacles=5,       # Custom obstacles
-    n_random_obstacles=2
-)
-
-# Train with custom parameters
-agent, logger = train(
-    n_episodes=2000,
-    epsilon_start=0.9,
-    epsilon_end=0.02,
-    alpha=0.2,
-    gamma=0.98,
-    env=env
-)
-
-# Evaluate
-results = evaluate(agent, logger, env, n_episodes=20)
-```
+You can create custom training scripts with different environments, agents, and hyperparameters. The system supports flexible configuration for grid size, obstacles, training episodes, and learning parameters.
 
 ## Output Files
 
@@ -224,26 +247,50 @@ results/20251014_HHMMSS/
 
 ```
 rl_tech_test/
-├── config/                   # Configuration files
-│   ├── base_config.py        # Environment and general settings
-│   └── experiement_config.py # Q-learning hyperparameters
-├── run.py                    # Main training script
-├── example_qlearning.py      # Example: Single agent training
-├── example_multi_agent.py    # Example: Multi-agent comparison
-├── training/                 # Training and evaluation modules
-│   ├── trainer.py           # Training logic
-│   └── evaluator.py         # Evaluation logic
-├── enviroment/               # Environment implementations
-│   ├── base_enviroment.py   # Abstract base environment class
-│   └── grid_world.py        # GridWorld environment implementation
-├── agents/
-│   └── QLearningAgent.py     # Q-Learning implementation
-├── mdp/
-│   ├── rewards.py            # Reward calculation
-│   ├── observations.py       # State representation
-│   └── terminations.py       # Episode end conditions
-├── metrics/
-│   ├── metrics.py            # Data logging
-│   └── visualization.py      # Plot generation
-└── results/                  # Training outputs
+├── agents/                 # Agent implementations
+│   ├── agent_protocol.py   # Abstract base class for agents
+│   ├── QLearningAgent.py   # Tabular Q-learning agent
+│   ├── RandomAgent.py      # Random baseline agent
+│   └── DQNAgent.py         # Deep Q-Network agent
+├── enviroment/             # Environment implementations
+│   ├── base_enviroment.py  # Abstract base environment
+│   └── grid_world.py       # Grid world environment
+├── mdp/                    # MDP components
+│   ├── observations.py     # Observation functions
+│   ├── rewards.py          # Reward functions
+│   ├── terminations.py     # Termination conditions
+│   ├── curriculum.py       # Curriculum learning
+│   └── events.py           # Event system for dynamic changes
+├── training/               # Training and evaluation
+│   ├── trainer.py          # Training logic
+│   └── evaluator.py        # Evaluation logic
+├── metrics/                # Metrics and visualization
+│   ├── metrics.py          # Performance metrics
+│   └── visualization.py    # Plotting functions
+├── utils/                  # Utility classes
+│   ├── experience_replay.py # Standard experience replay buffer
+│   └── hindsight_replay.py  # Hindsight experience replay buffer
+├── config/                 # Configuration files
+│   ├── base_config.py      # Base configuration
+│   └── experiement_config.py # Experiment-specific config
+├── results/                # Training results and visualizations
+├── run.py                  # Main training script
+├── grid_search.py          # Hyperparameter grid search
+└── requirements.txt        # Python dependencies
 ```
+
+## Experience Module
+
+The `experience` module provides comprehensive replay buffer implementations for DQN agents.
+
+### Replay Buffers
+
+#### Files:
+- **`experience/replay_buffer.py`**: Comprehensive replay buffer implementations
+
+#### Features:
+- **ReplayBuffer**: Traditional FIFO replay buffer with statistics and utilities
+- **PrioritizedReplayBuffer**: Prioritized experience replay based on TD errors
+- **Configurable capacity**: Adjustable buffer size
+- **Statistics tracking**: Monitor buffer utilization and performance
+- **Episode grouping**: Organize experiences by episodes
