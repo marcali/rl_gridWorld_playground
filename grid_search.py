@@ -8,7 +8,7 @@ from pathlib import Path
 from enviroment import Environment
 from agents import QLearningAgent
 from mdp import GoalReachedReward, StepPenaltyReward, CollisionPenaltyReward, RandomObstacleEvent
-from config import base_config, experiement_config as exp_config
+from config import base_config, qlearning_config, trainer_config
 from training import Trainer, Evaluator
 import matplotlib.pyplot as plt
 
@@ -53,12 +53,12 @@ def train_and_evaluate(
     print(f"    Training complete. Success rate: {training_success_rate:.1f}%")
 
     # Evaluate trained agent using new modular approach
-    print(f"    Evaluating for {exp_config.GRID_SEARCH_N_EVAL} episodes...")
+    print(f"    Evaluating for {qlearning_config.GRID_SEARCH_N_EVAL} episodes...")
     eval_results = evaluator.evaluate(
         agent=trained_agent,
         logger=None,
         env=env,
-        n_episodes=exp_config.GRID_SEARCH_N_EVAL,
+        n_episodes=qlearning_config.GRID_SEARCH_N_EVAL,
         silent=True,
         eval_epsilon=eval_epsilon,
         tolerance=tolerance,
@@ -93,13 +93,13 @@ def run_grid_search():
     # Create parameter grid
     param_grid = list(
         itertools.product(
-            exp_config.GRID_SEARCH_ALPHA,
-            exp_config.GRID_SEARCH_GAMMA,
-            exp_config.GRID_SEARCH_EPSILON_START,
-            exp_config.GRID_SEARCH_EPSILON_END,
-            exp_config.GRID_SEARCH_EPSILON_DECAY,
-            exp_config.GRID_SEARCH_EVAL_EPSILON,
-            exp_config.GRID_SEARCH_TOLERANCE,
+            qlearning_config.GRID_SEARCH_ALPHA,
+            qlearning_config.GRID_SEARCH_GAMMA,
+            qlearning_config.GRID_SEARCH_EPSILON_START,
+            qlearning_config.GRID_SEARCH_EPSILON_END,
+            qlearning_config.GRID_SEARCH_EPSILON_DECAY,
+            qlearning_config.GRID_SEARCH_EVAL_EPSILON,
+            qlearning_config.GRID_SEARCH_TOLERANCE,
         )
     )
 
@@ -141,7 +141,7 @@ def run_grid_search():
                 epsilon_decay=epsilon_decay,
                 eval_epsilon=eval_epsilon,
                 tolerance=tolerance,
-                n_episodes=exp_config.GRID_SEARCH_N_EPISODES,
+                n_episodes=qlearning_config.GRID_SEARCH_N_EPISODES,
                 env=env,
             )
             results.append(result)

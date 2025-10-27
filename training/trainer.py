@@ -6,7 +6,7 @@ import torch.nn.functional as F
 from collections import deque
 from agents import QLearningAgent, AgentProtocol
 from metrics import MetricsLogger
-from config import base_config, experiement_config as exp_config
+from config import base_config, qlearning_config, trainer_config
 
 
 class Trainer:
@@ -25,10 +25,10 @@ class Trainer:
         self,
         agent: AgentProtocol,
         env,
-        n_episodes=exp_config.N_EPISODES,
-        epsilon_start=exp_config.EPSILON_START,
-        epsilon_end=exp_config.EPSILON_END,
-        epsilon_decay=exp_config.EPSILON_DECAY,
+        n_episodes,
+        epsilon_start,
+        epsilon_end,
+        epsilon_decay,
         silent=False,
     ):
         """
@@ -56,7 +56,11 @@ class Trainer:
             )
 
         # Only create logger if not in silent mode
-        logger = MetricsLogger(experiment_name=self.experiment_name) if not silent else None
+        logger = (
+            MetricsLogger(experiment_name=self.experiment_name, agent_type=agent.__class__.__name__)
+            if not silent
+            else None
+        )
 
         epsilon = epsilon_start
         # automatically deletes oldest item when maxlen is reached, only keep last 100 items
@@ -114,9 +118,17 @@ class Trainer:
             avg_reward = np.mean(reward_history)
             success_rate = np.mean(success_history) * 100
 
-            # Log Q-value statistics and convergence metrics
-            q_stats = agent.log_q_value_stats(episode)
-            convergence_metrics = agent.get_convergence_metrics()
+            # Log Q-value statistics and convergence metrics (if available)
+            if hasattr(agent, "log_q_value_stats"):
+                q_stats = agent.log_q_value_stats(episode)
+            else:
+                q_stats = None
+
+            if hasattr(agent, "get_convergence_metrics"):
+                convergence_metrics = agent.get_convergence_metrics()
+            else:
+                convergence_metrics = None
+
             convergence_rate = (
                 convergence_metrics["convergence_rate"] if convergence_metrics else 0.0
             )
@@ -150,8 +162,8 @@ class Trainer:
                     print(
                         f"              | Goal: {goal_rewards:+6.0f} | Step: {step_penalties:+6.0f} | Collision: {collision_penalties:+6.0f}"
                     )
-                # Show convergence metrics
-                if convergence_metrics:
+                # Show convergence metrics (if available)
+                if convergence_metrics and q_stats:
                     print(
                         f"              | Mean Q: {q_stats['mean_q']:6.2f} | Convergence: {convergence_rate:5.3f} | "
                         f"Explored States: {q_stats['non_zero_states']:3d}/{q_stats['total_states']}"
@@ -172,26 +184,25 @@ class Trainer:
         experiences = agent.memory.sample(agent.batch_size)
 
         # Convert experiences to tensors
-        states = torch.stack(
-            [agent._state_to_tensor(exp.state).squeeze(0) for exp in experiences]
-        ).to(agent.device)
-        actions = torch.tensor([exp.action for exp in experiences], dtype=torch.long).to(
-            agent.device
-        )
-        rewards = torch.tensor([exp.reward for exp in experiences], dtype=torch.float32).to(
-            agent.device
-        )
+        states = torch.stack([agent._state_to_tensor(exp.state).squeeze(0) for exp in experiences])
+        actions = torch.tensor([exp.action for exp in experiences], dtype=torch.long)
+        rewards = torch.tensor([exp.reward for exp in experiences], dtype=torch.float32)
         next_states = torch.stack(
             [agent._state_to_tensor(exp.next_state).squeeze(0) for exp in experiences]
-        ).to(agent.device)
-        dones = torch.tensor([exp.done for exp in experiences], dtype=torch.bool).to(agent.device)
+        )
+        dones = torch.tensor([exp.done for exp in experiences], dtype=torch.bool)
 
         # Current Q values
         current_q_values = agent.q_network(states).gather(1, actions.unsqueeze(1))
 
         # Next Q values from target network
         with torch.no_grad():
+            # max(1) returns the maximum value for each row (action dimension)
+            # [0] returns the index of the maximum value
+            # so next_q_values is the Q-value of the action with the highest Q-value for each state in the batch
             next_q_values = agent.target_network(next_states).max(1)[0]
+            # target_q_values = rewards + (agent.gamma * next_q_values * ~dones)
+            # ~dones is 1 if the episode is not done, 0 if it is done
             target_q_values = rewards + (agent.gamma * next_q_values * ~dones)
 
         # Compute loss

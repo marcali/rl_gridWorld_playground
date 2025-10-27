@@ -1,27 +1,30 @@
 import numpy as np
 import pickle
 from pathlib import Path
-from config import base_config, experiement_config as exp_config
+from config import base_config, qlearning_config
 from .agent_protocol import AgentProtocol
+from .convergence_tracking import ConvergenceTrackingMixin
 
 
-class QLearningAgent(AgentProtocol):
-    def __init__(self, n_states, n_actions, alpha=exp_config.ALPHA, gamma=exp_config.GAMMA):
+class QLearningAgent(AgentProtocol, ConvergenceTrackingMixin):
+    def __init__(
+        self, n_states, n_actions, alpha=qlearning_config.ALPHA, gamma=qlearning_config.GAMMA
+    ):
         # Initialize Q-table with small random values
         self.q_table = np.random.uniform(
-            low=-exp_config.Q_TABLE_INIT_RANGE,
-            high=exp_config.Q_TABLE_INIT_RANGE,
+            low=-qlearning_config.Q_TABLE_INIT_RANGE,
+            high=qlearning_config.Q_TABLE_INIT_RANGE,
             size=(n_states, n_actions),
         )
         self.n_actions = n_actions
+        self.state_size = n_states  # Required for mixin
         self.alpha = alpha  # Learning rate
         self.gamma = gamma  # Discount factor
 
-        # Convergence tracking
-        self.q_value_history = []  # Store Q-value statistics over time
-        self.episode_q_stats = []  # Store per-episode Q-value statistics
+        # Initialize convergence tracking mixin
+        self.__init_convergence_tracking__()
 
-    def act(self, state, epsilon=0.1, tolerance=exp_config.Q_VALUE_TOLERANCE):
+    def act(self, state, epsilon=0.1, tolerance=qlearning_config.Q_VALUE_TOLERANCE):
         """Select action using epsilon-greedy policy"""
         if np.random.random() < epsilon:
             # Explore: random action
@@ -49,55 +52,9 @@ class QLearningAgent(AgentProtocol):
         # update q-value=Q(s, a) + alpha * td_error
         self.q_table[state, action] += self.alpha * td_error
 
-    def log_q_value_stats(self, episode):
-        """Log Q-value statistics for convergence tracking"""
-        # Calculate Q-value statistics
-        q_values = self.q_table.flatten()
-        q_stats = {
-            "episode": episode,
-            "mean_q": np.mean(q_values),
-            "std_q": np.std(q_values),
-            "max_q": np.max(q_values),
-            "min_q": np.min(q_values),
-            "q_range": np.max(q_values) - np.min(q_values),
-            "non_zero_states": np.count_nonzero(np.any(self.q_table != 0, axis=1)),
-            "total_states": self.q_table.shape[0],
-        }
-        self.episode_q_stats.append(q_stats)
-        return q_stats
-
-    def get_state_value_map(self):
-        """Get the value of each state (max Q-value for each state)"""
-        return np.max(self.q_table, axis=1)
-
-    def get_convergence_metrics(self):
-        """Get convergence-related metrics"""
-        if len(self.episode_q_stats) < 2:
-            return None
-
-        # Calculate Q-value change over time
-        recent_episodes = min(100, len(self.episode_q_stats))
-        recent_mean_q = [stats["mean_q"] for stats in self.episode_q_stats[-recent_episodes:]]
-
-        if len(recent_mean_q) < 2:
-            return None
-
-        # Calculate stability (how much Q-values are changing)
-        q_std_change = np.std(np.diff(recent_mean_q))
-
-        # Calculate convergence rate (how quickly Q-values are stabilizing)
-        convergence_rate = 1.0 / (1.0 + q_std_change) if q_std_change > 0 else 1.0
-
-        return {
-            "q_value_stability": q_std_change,
-            "convergence_rate": convergence_rate,
-            "current_mean_q": recent_mean_q[-1],
-            "q_value_trend": (
-                np.polyfit(range(len(recent_mean_q)), recent_mean_q, 1)[0]
-                if len(recent_mean_q) > 1
-                else 0
-            ),
-        }
+    def get_q_values(self, state: int) -> np.ndarray:
+        """Get Q-values for a specific state"""
+        return self.q_table[state, :]
 
     def save(self, path: str) -> None:
         """

@@ -7,8 +7,8 @@ import torch.optim as optim
 import torch.nn.functional as F
 import random
 from typing import List
-from config import base_config, experiement_config as exp_config
 from .agent_protocol import AgentProtocol
+from .convergence_tracking import ConvergenceTrackingMixin
 from experience import ReplayBuffer
 
 
@@ -43,23 +43,22 @@ class DQNNetwork(nn.Module):
         return self.network(x)
 
 
-class DQNAgent(AgentProtocol):
+class DQNAgent(AgentProtocol, ConvergenceTrackingMixin):
     """Deep Q-Network Agent"""
 
     def __init__(
         self,
         state_size: int,
         action_size: int,
-        learning_rate: float = 0.001,
-        gamma: float = 0.95,
-        epsilon: float = 1.0,
-        epsilon_decay: float = 0.995,
-        epsilon_min: float = 0.01,
+        learning_rate: float,
+        gamma: float,
+        epsilon: float,
+        epsilon_decay: float,
+        epsilon_min: float,
         batch_size: int = 32,
         memory_size: int = 10000,
         target_update_freq: int = 100,
         hidden_size: int = 128,
-        device: str = None,
     ):
         """
         Initialize DQN Agent
@@ -76,7 +75,6 @@ class DQNAgent(AgentProtocol):
             memory_size: Size of replay buffer
             target_update_freq: Frequency to update target network
             hidden_size: Hidden layer size
-            device: Device to run on ('cpu' or 'cuda')
         """
         self.state_size = state_size
         self.action_size = action_size
@@ -88,12 +86,9 @@ class DQNAgent(AgentProtocol):
         self.batch_size = batch_size
         self.target_update_freq = target_update_freq
 
-        # Device setup
-        self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
-
         # Networks
-        self.q_network = DQNNetwork(state_size, action_size, hidden_size).to(self.device)
-        self.target_network = DQNNetwork(state_size, action_size, hidden_size).to(self.device)
+        self.q_network = DQNNetwork(state_size, action_size, hidden_size)
+        self.target_network = DQNNetwork(state_size, action_size, hidden_size)
         self.optimizer = optim.Adam(self.q_network.parameters(), lr=learning_rate)
 
         # Initialize target network
@@ -106,12 +101,15 @@ class DQNAgent(AgentProtocol):
         self.step_count = 0
         self.loss_history = []
 
+        # Initialize convergence tracking mixin
+        self.__init_convergence_tracking__()
+
     def _state_to_tensor(self, state: int) -> torch.Tensor:
         """Convert state to tensor"""
         # Convert state index to one-hot encoding
         state_tensor = torch.zeros(self.state_size, dtype=torch.float32)
         state_tensor[state] = 1.0
-        return state_tensor.unsqueeze(0).to(self.device)
+        return state_tensor.unsqueeze(0)
 
     def act(self, state: int, epsilon: float = None, tolerance: float = 0.001) -> int:
         """Select action using epsilon-greedy policy"""
@@ -159,6 +157,8 @@ class DQNAgent(AgentProtocol):
             "epsilon": self.epsilon,
             "step_count": self.step_count,
             "loss_history": self.loss_history,
+            "q_value_history": self.q_value_history,
+            "episode_q_stats": self.episode_q_stats,
             "state_size": self.state_size,
             "action_size": self.action_size,
             "learning_rate": self.learning_rate,
@@ -173,7 +173,7 @@ class DQNAgent(AgentProtocol):
 
     def load(self, path: str) -> None:
         """Load agent parameters from file"""
-        save_dict = torch.load(path, map_location=self.device)
+        save_dict = torch.load(path, map_location="cpu")
 
         self.q_network.load_state_dict(save_dict["q_network_state_dict"])
         self.target_network.load_state_dict(save_dict["target_network_state_dict"])
@@ -181,6 +181,10 @@ class DQNAgent(AgentProtocol):
         self.epsilon = save_dict["epsilon"]
         self.step_count = save_dict["step_count"]
         self.loss_history = save_dict["loss_history"]
+
+        # Load convergence tracking data (with backward compatibility)
+        self.q_value_history = save_dict.get("q_value_history", [])
+        self.episode_q_stats = save_dict.get("episode_q_stats", [])
 
         # Verify parameters match
         assert self.state_size == save_dict["state_size"]

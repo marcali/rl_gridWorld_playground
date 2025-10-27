@@ -2,7 +2,7 @@
 
 import numpy as np
 from agents import RandomAgent, AgentProtocol
-from config import base_config, experiement_config as exp_config
+from config import base_config, qlearning_config, trainer_config
 from experience import Trajectory
 
 
@@ -79,7 +79,7 @@ class Evaluator:
                 )
                 # Use custom tolerance if provided, otherwise use config default
                 tolerance_to_use = (
-                    tolerance if tolerance is not None else exp_config.Q_VALUE_TOLERANCE
+                    tolerance if tolerance is not None else qlearning_config.Q_VALUE_TOLERANCE
                 )
 
                 # Select action
@@ -104,7 +104,9 @@ class Evaluator:
             # Save path visualization and log metrics
             if save_paths and logger is not None:
                 # Convert trajectory to path format for rendering
-                path = trajectory.get_state_sequence()
+                state_sequence = trajectory.get_state_sequence()
+                # Convert state indices to coordinates (y, x)
+                path = [(state // env.size, state % env.size) for state in state_sequence]
 
                 # files are named after agent_type
                 save_path = (

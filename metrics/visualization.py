@@ -386,13 +386,26 @@ def plot_state_value_heatmap(agent, save_dir=None, grid_size=10, env=None):
     Create a comprehensive heatmap showing the learned state values
 
     Args:
-        agent: QLearningAgent instance
+        agent: QLearningAgent or DQNAgent instance
         save_dir: Directory to save plots (if None, only display)
         grid_size: Size of the grid (assumes square grid)
         env: Environment instance to show obstacles and goal
     """
     # Get state values (max Q-value for each state)
-    state_values = agent.get_state_value_map()
+    if hasattr(agent, "get_state_value_map"):
+        # Q-Learning agent
+        state_values = agent.get_state_value_map()
+    elif hasattr(agent, "get_q_values"):
+        # DQN agent - extract max Q-values for all states
+        n_states = grid_size * grid_size
+        state_values = np.zeros(n_states)
+        for state in range(n_states):
+            q_values = agent.get_q_values(state)
+            state_values[state] = np.max(q_values)
+    else:
+        raise ValueError(
+            "Agent must have either 'get_state_value_map' method or 'get_q_values' method"
+        )
 
     # Reshape to grid
     value_grid = state_values.reshape(grid_size, grid_size)
@@ -538,12 +551,41 @@ Range: {np.min(state_values):.3f} to {np.max(state_values):.3f}"""
     plt.close()
 
 
+def _get_q_table_from_agent(agent, grid_size):
+    """
+    Extract Q-table from either Q-Learning or DQN agent
+
+    Args:
+        agent: QLearningAgent or DQNAgent instance
+        grid_size: Size of the grid (assumes square grid)
+
+    Returns:
+        q_table: 2D numpy array of shape (n_states, n_actions)
+    """
+    if hasattr(agent, "q_table"):
+        # Q-Learning agent
+        return agent.q_table
+    elif hasattr(agent, "get_q_values"):
+        # DQN agent - extract Q-values for all states
+        n_states = grid_size * grid_size
+        n_actions = 4  # UP, DOWN, LEFT, RIGHT
+
+        q_table = np.zeros((n_states, n_actions))
+        for state in range(n_states):
+            q_values = agent.get_q_values(state)
+            q_table[state] = q_values
+
+        return q_table
+    else:
+        raise ValueError("Agent must have either 'q_table' attribute or 'get_q_values' method")
+
+
 def plot_action_value_heatmaps(agent, save_dir=None, grid_size=10, env=None):
     """
     Create separate heatmaps for each action showing Q-values
 
     Args:
-        agent: QLearningAgent instance
+        agent: QLearningAgent or DQNAgent instance
         save_dir: Directory to save plots (if None, only display)
         grid_size: Size of the grid (assumes square grid)
         env: Environment instance to show obstacles and goal
@@ -556,8 +598,8 @@ def plot_action_value_heatmaps(agent, save_dir=None, grid_size=10, env=None):
         "Q-Values by Action: How Good is Each Action in Each State", fontsize=16, fontweight="bold"
     )
 
-    # Get Q-table
-    q_table = agent.q_table
+    # Get Q-table using compatibility layer
+    q_table = _get_q_table_from_agent(agent, grid_size)
     q_grids = []
 
     # Reshape Q-values for each action
@@ -662,13 +704,13 @@ def plot_optimal_policy_heatmap(agent, save_dir=None, grid_size=10, env=None):
     Create a heatmap showing the optimal policy (best action for each state)
 
     Args:
-        agent: QLearningAgent instance
+        agent: QLearningAgent or DQNAgent instance
         save_dir: Directory to save plots (if None, only display)
         grid_size: Size of the grid (assumes square grid)
         env: Environment instance to show obstacles and goal
     """
-    # Get Q-table
-    q_table = agent.q_table
+    # Get Q-table using compatibility layer
+    q_table = _get_q_table_from_agent(agent, grid_size)
 
     # Find best action for each state
     best_actions = np.argmax(q_table, axis=1)

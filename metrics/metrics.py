@@ -9,20 +9,25 @@ from pathlib import Path
 class MetricsLogger:
     """Logger for tracking and saving training metrics"""
 
-    def __init__(self, log_dir="results", experiment_name=None):
+    def __init__(self, log_dir="results", experiment_name=None, agent_type=None):
         """
         Initialize metrics logger
 
         Args:
             log_dir: Directory to save logs
             experiment_name: Name of the experiment (defaults to timestamp)
+            agent_type: Type of agent (e.g., 'DQN', 'QLearning', 'Random')
         """
         self.log_dir = Path(log_dir)
         self.log_dir.mkdir(exist_ok=True)
 
         # Create experiment subdirectory
         if experiment_name is None:
-            experiment_name = datetime.now().strftime("%Y%m%d_%H%M%S")
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            if agent_type:
+                experiment_name = f"{agent_type}_{timestamp}"
+            else:
+                experiment_name = timestamp
         self.experiment_dir = self.log_dir / experiment_name
         self.experiment_dir.mkdir(exist_ok=True)
 

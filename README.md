@@ -104,7 +104,7 @@ Deep Q-Network with 3-layer neural network and optional hindsight experience rep
 - **Standard Experience Replay** or **Hindsight Experience Replay** (optional)
 - **Target network** for stable training
 - **Epsilon-greedy exploration** with decay
-- **Automatic device detection** (CPU/CUDA)
+- **CPU-only implementation** (no GPU dependencies)
 - **Save/load functionality** for trained models
 - **Clean separation of concerns** - no reward calculation in agent
 - **Protocol compliance** - follows same interface as other agents
@@ -272,7 +272,9 @@ rl_tech_test/
 │   └── hindsight_replay.py  # Hindsight experience replay buffer
 ├── config/                 # Configuration files
 │   ├── base_config.py      # Base configuration
-│   └── experiement_config.py # Experiment-specific config
+│   ├── dqn_config.py       # DQN agent configuration
+│   ├── qlearning_config.py # Q-Learning agent configuration
+│   └── trainer_config.py   # Training configuration
 ├── results/                # Training results and visualizations
 ├── run.py                  # Main training script
 ├── grid_search.py          # Hyperparameter grid search
@@ -289,8 +291,7 @@ The `experience` module provides comprehensive replay buffer implementations for
 - **`experience/replay_buffer.py`**: Comprehensive replay buffer implementations
 
 #### Features:
-- **ReplayBuffer**: Traditional FIFO replay buffer with statistics and utilities
-- **PrioritizedReplayBuffer**: Prioritized experience replay based on TD errors
+- **ReplayBuffer**: Traditional FIFO replay buffer
 - **Configurable capacity**: Adjustable buffer size
 - **Statistics tracking**: Monitor buffer utilization and performance
 - **Episode grouping**: Organize experiences by episodes
