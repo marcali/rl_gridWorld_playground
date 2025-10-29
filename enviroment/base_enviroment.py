@@ -1,4 +1,26 @@
-"""Abstract base class for RL environments"""
+"""Abstract base class for RL environments
+
+This base class defines the minimal contract any concrete environment must
+implement. In addition to the usual reset/step/render API, environments in
+this codebase are expected to be built from explicit MDP components:
+
+Required MDP components that every environment must provide:
+- Reward term: computes scalar rewards for transitions
+- Observation term: converts internal state into agent observations
+- Done term: determines episode termination
+
+Optional components supported by the framework:
+- Curriculum manager/rules: adjusts difficulty or rules over episodes/steps
+- Event manager/terms: injects stochastic events or dynamics each episode
+
+Concrete implementations should expose these as attributes so downstream code
+can interact with them in a consistent way:
+- self.rew_term (required)
+- self.obs_term (required)
+- self.done_term (required)
+- self.curriculum_rules or self.curriculum_manager (optional)
+- self.event_manager (optional)
+"""
 
 from abc import ABC, abstractmethod
 from typing import Tuple, Any, Optional
