@@ -105,6 +105,13 @@ class Evaluator:
             if save_paths and logger is not None:
                 # Convert trajectory to path format for rendering
                 state_sequence = trajectory.get_state_sequence()
+                # Add the final state to the path for accurate visualization
+                if len(state_sequence) > 0:
+                    # Convert the final environment state to index and add it
+                    final_y, final_x = env.current_state
+                    final_state_index = final_y * env.size + final_x
+                    state_sequence.append(final_state_index)
+
                 # Convert state indices to coordinates (y, x)
                 path = [(state // env.size, state % env.size) for state in state_sequence]
 

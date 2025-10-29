@@ -22,28 +22,6 @@ MAX_EPISODES = 1500  # Maximum training episodes
 EVAL_EPSILON = 0.05  # Exploration rate during evaluation
 
 # ============================================================================
-# GRID SEARCH PARAMETERS FOR Q-LEARNING
-# ============================================================================
-
-# Learning rate search space
-QL_ALPHAS = [0.05, 0.1, 0.15, 0.2, 0.3]
-
-# Discount factor search space
-QL_GAMMAS = [0.9, 0.95, 0.99]
-
-# Epsilon decay search space
-QL_EPSILON_DECAYS = [0.995, 0.998, 0.999, 0.9995]
-
-# Epsilon start search space
-QL_EPSILON_STARTS = [0.8, 0.9, 1.0]
-
-# Epsilon end search space
-QL_EPSILON_ENDS = [0.01, 0.05, 0.1]
-
-# Q-value tolerance search space
-QL_TOLERANCES = [0.001, 0.005, 0.01, 0.05]
-
-# ============================================================================
 # GRID SEARCH SETTINGS
 # ============================================================================
 

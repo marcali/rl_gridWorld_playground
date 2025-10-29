@@ -7,6 +7,8 @@ from collections import deque
 from agents import QLearningAgent, AgentProtocol
 from metrics import MetricsLogger
 from config import base_config, qlearning_config, trainer_config
+from experience.her import HindsightExperienceReplay
+from experience.goal_extraction import GridWorldGoalExtractor
 
 
 class Trainer:
@@ -30,6 +32,9 @@ class Trainer:
         epsilon_end,
         epsilon_decay,
         silent=False,
+        use_her=False,
+        her_k=4,
+        her_strategy="future",
     ):
         """
         Train the agent with metrics logging
@@ -42,6 +47,9 @@ class Trainer:
             epsilon_end: Minimum exploration rate
             epsilon_decay: Epsilon decay rate per episode
             silent: If True, suppress progress output for grid search
+            use_her: If True, wrap agent's replay buffer with HER
+            her_k: Number of hindsight goals per episode
+            her_strategy: HER strategy ('future', 'final', 'random')
 
         Returns:
             tuple: (agent, logger, success_rate) if silent, else (agent, logger)
@@ -61,6 +69,25 @@ class Trainer:
             if not silent
             else None
         )
+
+        # Setup HER wrapper if requested
+        original_memory = None
+        if use_her:
+            # Create goal extractor for GridWorld
+            goal_extractor = GridWorldGoalExtractor(env.size)
+
+            # Wrap the agent's replay buffer with HER
+            original_memory = agent.memory
+            agent.memory = HindsightExperienceReplay(
+                replay_buffer=original_memory,
+                k=her_k,
+                strategy=her_strategy,
+                goal_extraction_func=goal_extractor.extract_achieved_goal,
+                desired_goal_extraction_func=lambda state, goal_state: goal_extractor.extract_desired_goal(
+                    state, goal_state
+                ),
+                goal_substitution_func=goal_extractor.substitute_goal,
+            )
 
         epsilon = epsilon_start
         # automatically deletes oldest item when maxlen is reached, only keep last 100 items
@@ -86,12 +113,9 @@ class Trainer:
                 # Take step
                 next_state, reward, done = env.step(action)
 
-                # Learn from experience
+                # Learn from experience - unified approach
+                # Agent handles both regular and HER cases internally
                 agent.learn(state, action, reward, next_state, done, env.goal_state)
-
-                # Perform training step for DQN agents
-                if hasattr(agent, "q_network"):  # Check if it's a DQN agent
-                    self._train_dqn(agent)
 
                 # Track reward components
                 if reward == base_config.REWARD_GOAL:  # Goal reached
@@ -168,6 +192,10 @@ class Trainer:
                         f"              | Mean Q: {q_stats['mean_q']:6.2f} | Convergence: {convergence_rate:5.3f} | "
                         f"Explored States: {q_stats['non_zero_states']:3d}/{q_stats['total_states']}"
                     )
+
+        # Restore original memory if HER was used
+        if use_her and original_memory is not None:
+            agent.memory = original_memory
 
         # Return values based on mode
         if silent:

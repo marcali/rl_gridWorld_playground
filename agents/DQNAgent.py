@@ -133,11 +133,21 @@ class DQNAgent(AgentProtocol, ConvergenceTrackingMixin):
         reward: float,
         next_state: int,
         done: bool,
-        goal_state: np.ndarray = None,
+        goal_state: tuple = None,
+        info: dict = None,
     ) -> None:
         """Update agent's knowledge based on experience"""
-        # Add experience to replay buffer
-        self.memory.add(state, action, reward, next_state, done)
+        # Always add experience to replay buffer
+        # If memory is HER wrapper, it will handle HER logic
+        # If memory is regular ReplayBuffer, it will add normally
+        if hasattr(self.memory, "add_experience") and goal_state is not None:
+            # HER wrapper - use add_experience with goal info
+            self.memory.add_experience(
+                state, action, reward, next_state, done, {"goal_state": goal_state}
+            )
+        else:
+            # Regular ReplayBuffer - use standard add method
+            self.memory.add(state, action, reward, next_state, done)
 
         # Update target network periodically
         self.step_count += 1
@@ -147,6 +157,43 @@ class DQNAgent(AgentProtocol, ConvergenceTrackingMixin):
         # Decay epsilon
         if self.epsilon > self.epsilon_min:
             self.epsilon *= self.epsilon_decay
+
+        # Train the network if we have enough experiences
+        if len(self.memory) >= self.batch_size:
+            self._train_network()
+
+    def _train_network(self) -> None:
+        """Internal method to train the DQN network"""
+        # Sample experiences from replay buffer
+        experiences = self.memory.sample(self.batch_size)
+
+        # Convert experiences to tensors
+        states = torch.stack([self._state_to_tensor(exp.state).squeeze(0) for exp in experiences])
+        actions = torch.tensor([exp.action for exp in experiences], dtype=torch.long)
+        rewards = torch.tensor([exp.reward for exp in experiences], dtype=torch.float32)
+        next_states = torch.stack(
+            [self._state_to_tensor(exp.next_state).squeeze(0) for exp in experiences]
+        )
+        dones = torch.tensor([exp.done for exp in experiences], dtype=torch.bool)
+
+        # Current Q values
+        current_q_values = self.q_network(states).gather(1, actions.unsqueeze(1))
+
+        # Next Q values from target network
+        with torch.no_grad():
+            next_q_values = self.target_network(next_states).max(1)[0]
+            target_q_values = rewards + (self.gamma * next_q_values * ~dones)
+
+        # Compute loss
+        loss = F.mse_loss(current_q_values.squeeze(), target_q_values)
+
+        # Optimize
+        self.optimizer.zero_grad()
+        loss.backward()
+        self.optimizer.step()
+
+        # Track loss
+        self.loss_history.append(loss.item())
 
     def save(self, path: str) -> None:
         """Save agent parameters to file"""

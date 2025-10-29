@@ -71,21 +71,6 @@ The environment supports curriculum learning, allowing you to modify rewards ove
 
 The curriculum learning system allows you to modify rewards over time based on steps or episodes. You can create base rewards and define curriculum rules that trigger modifications at specific thresholds.
 
-### Curriculum Actions
-
-- **`modify_existing`**: Modify existing reward values using a multiplier
-- **`add_new`**: Add new reward terms
-- **`remove_existing`**: Remove existing reward terms by class name
-
-### Curriculum Rule Types
-
-- **`StepBasedCurriculum`**: Triggers after a certain number of steps
-- **`EpisodeBasedCurriculum`**: Triggers after a certain number of episodes
-
-### Advanced Curriculum Learning
-
-You can create more complex curricula with multiple modifications, gradually increasing difficulty, adding new rewards at different stages, and removing penalties as the agent improves.
-
 ## Available Agents
 
 The codebase includes several agent implementations:
@@ -95,24 +80,6 @@ Traditional tabular Q-learning with epsilon-greedy exploration.
 
 ### Random Agent
 Baseline agent that takes random actions for comparison.
-
-### DQN Agent (NEW!)
-Deep Q-Network with 3-layer neural network and optional hindsight experience replay. The DQN agent can be configured with various hyperparameters including learning rate, gamma, epsilon settings, batch size, memory size, target update frequency, and hidden layer size. It supports both standard experience replay and hindsight experience replay for improved sample efficiency.
-
-#### DQN Features:
-- **3-layer neural network** with ReLU activations
-- **Standard Experience Replay** or **Hindsight Experience Replay** (optional)
-- **Target network** for stable training
-- **Epsilon-greedy exploration** with decay
-- **CPU-only implementation** (no GPU dependencies)
-- **Save/load functionality** for trained models
-- **Clean separation of concerns** - no reward calculation in agent
-- **Protocol compliance** - follows same interface as other agents
-- **Training separation** - neural network training handled by trainer, not agent
-
-#### Experience Replay Options:
-- **Standard Experience Replay**: Traditional replay buffer for DQN training
-- **Hindsight Experience Replay**: Relabels failed episodes with alternative goals for better sample efficiency
 
 #### Training Pattern:
 The DQN agent follows the same pattern as other agents:
@@ -283,7 +250,7 @@ rl_tech_test/
 
 ## Experience Module
 
-The `experience` module provides comprehensive replay buffer implementations for DQN agents.
+The `experience` module provides comprehensive replay buffer implementations for off policy agents.
 
 ### Replay Buffers
 

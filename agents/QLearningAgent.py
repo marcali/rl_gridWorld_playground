@@ -21,6 +21,10 @@ class QLearningAgent(AgentProtocol, ConvergenceTrackingMixin):
         self.alpha = alpha  # Learning rate
         self.gamma = gamma  # Discount factor
 
+        # Counts for UCB exploration
+        self.state_action_counts = np.zeros((n_states, n_actions), dtype=np.int64)
+        self.state_counts = np.zeros(n_states, dtype=np.int64)
+
         # Initialize convergence tracking mixin
         self.__init_convergence_tracking__()
 
@@ -40,6 +44,24 @@ class QLearningAgent(AgentProtocol, ConvergenceTrackingMixin):
             # Pick randomly among tied actions
             return int(np.random.choice(tied_actions))
 
+    def act_ucb(self, state, c: float = 1.0, tolerance=qlearning_config.Q_VALUE_TOLERANCE):
+        """Select action using UCB1 over Q-values.
+
+        UCB score: Q(s,a) + c * sqrt( ln(N(s) + 1) / (N(s,a) + 1) )
+        """
+        q_values = self.q_table[state]
+
+        # Ensure at least 1 visit in denominators
+        n_sa = self.state_action_counts[state] + 1
+        n_s = self.state_counts[state] + 1
+
+        bonus = c * np.sqrt(np.log(n_s) / n_sa)
+        ucb_scores = q_values + bonus
+
+        max_score = ucb_scores.max()
+        tied_actions = np.flatnonzero(ucb_scores >= max_score - tolerance)
+        return int(np.random.choice(tied_actions))
+
     def learn(self, state, action, reward, next_state, done, goal_state=None):
         """Update Q-values based on experience"""
         # select action with highest Q-value
@@ -50,6 +72,18 @@ class QLearningAgent(AgentProtocol, ConvergenceTrackingMixin):
         # td error = td_target - Q(s, a)
         td_error = td_target - self.q_table[state, action]
         # update q-value=Q(s, a) + alpha * td_error
+        self.q_table[state, action] += self.alpha * td_error
+
+    def learn_ucb(self, state, action, reward, next_state, done, goal_state=None):
+        """Update Q-values and visitation counts for UCB exploration."""
+        # Increment visitation counts for UCB
+        self.state_counts[state] += 1
+        self.state_action_counts[state, action] += 1
+
+        # Standard Q-learning update
+        best_next_action = np.argmax(self.q_table[next_state])
+        td_target = reward + self.gamma * self.q_table[next_state, best_next_action] * (1 - done)
+        td_error = td_target - self.q_table[state, action]
         self.q_table[state, action] += self.alpha * td_error
 
     def get_q_values(self, state: int) -> np.ndarray:
@@ -74,6 +108,8 @@ class QLearningAgent(AgentProtocol, ConvergenceTrackingMixin):
             "gamma": self.gamma,
             "q_value_history": self.q_value_history,
             "episode_q_stats": self.episode_q_stats,
+            "state_action_counts": self.state_action_counts,
+            "state_counts": self.state_counts,
         }
 
         # Save to file
@@ -102,3 +138,9 @@ class QLearningAgent(AgentProtocol, ConvergenceTrackingMixin):
         self.gamma = agent_data["gamma"]
         self.q_value_history = agent_data.get("q_value_history", [])
         self.episode_q_stats = agent_data.get("episode_q_stats", [])
+        self.state_action_counts = agent_data.get(
+            "state_action_counts", np.zeros_like(self.q_table, dtype=np.int64)
+        )
+        self.state_counts = agent_data.get(
+            "state_counts", np.zeros(self.q_table.shape[0], dtype=np.int64)
+        )
